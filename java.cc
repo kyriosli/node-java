@@ -4,12 +4,12 @@
 #include<node.h>
 
 #define	JNI_VERSION	JNI_VERSION_1_6
-#define	THROW(msg)	isolate->ThrowException(Exception::Error(String::NewFromOneByte(isolate, reinterpret_cast<const uint8_t*>(msg))))
-#define GET_PTR(args, idx, type)	reinterpret_cast<type>(External::Cast(*args[idx])->Value())
+#define	THROW(msg)	isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, msg)))
+#define GET_PTR(args, idx, type)	static_cast<type>(External::Cast(*args[idx])->Value())
 #define	GET_JVM(args)	GET_PTR(args, 0, JavaVM*)
 #define CHECK_ERRNO(errno, msg)	if(errno) {\
-		uint8_t errMsg[128];\
-		sprintf(reinterpret_cast<char*>(errMsg), msg " with error code: %d", errno);\
+		char errMsg[128];\
+		sprintf(errMsg, msg " with error code: %d", errno);\
 		THROW(errMsg);\
 		return;\
 	}
@@ -20,19 +20,48 @@
 	}
 
 #define RETURN(val)	args.GetReturnValue().Set(handle_scope.Escape(val))
+#define UNWRAP(arg, type)	static_cast<type>(static_cast<JavaObject*>(External::Cast(*arg)->Value())->_obj)
 
 namespace java {
 	using namespace v8;
+
+	typedef class JavaObject {
+	private:
+		Persistent<External> _ref;
+
+		inline JavaObject (JNIEnv* env, Isolate* isolate, jobject obj) :
+			_obj(obj),
+			_ref(isolate, External::New(isolate, this)) {
+			_ref.SetWeak(env, WeakCallback);
+			_ref.MarkIndependent();
+		}
+
+		static void WeakCallback(const WeakCallbackData<External, JNIEnv>& data) {
+			JNIEnv* env = data.GetParameter();
+			JavaObject* ptr = (JavaObject*) data.GetValue()->Value();
+
+			ptr->_ref.Reset();	
+			env->DeleteGlobalRef(ptr->_obj);
+			delete ptr;
+		}
+	public:
+		jobject	_obj;
+		static inline Local<Value> wrap (JNIEnv* env, jobject obj, Isolate* isolate) {
+			JavaObject* ptr = new JavaObject(env, isolate, env->NewGlobalRef(obj));
+			return Local<External>::New(isolate, ptr->_ref);
+		}
+
+
+	} JavaObject;
 
 	inline Local<String> cast(JNIEnv* env, Isolate* isolate, jstring javastr) {
 		if(!javastr) {
 			return Null(isolate)->ToString();
 		}
 		
-		// jsize strlen = env->GetStringLength(javastr);
-		jboolean isCopy;
-		const jchar* chars = env->GetStringCritical(javastr, &isCopy);
-		Local<String> ret = String::NewFromTwoByte(isolate, chars);
+		jsize strlen = env->GetStringLength(javastr);
+		const jchar* chars = env->GetStringCritical(javastr, NULL);
+		Local<String> ret = String::NewFromTwoByte(isolate, chars, String::kNormalString, strlen);
 		env->ReleaseStringCritical(javastr, chars);
 		return ret;
 	}
@@ -44,25 +73,6 @@ namespace java {
 		return env->NewString(*val, len);
 	}
 
-	static void wrapCallback(const WeakCallbackData<External, JNIEnv>& data) {
-		JNIEnv* env = data.GetParameter();
-		jobject ref = (jobject) data.GetValue()->Value();
-		env->DeleteGlobalRef(ref);
-		static int count = 0;
-		count++;
-//		if(count % 100 == 0) {
-			printf("%d references released\n", count);
-//		}
-	}
-
-	inline Local<Value> wrap(JNIEnv* env, jobject obj, Isolate* isolate) {
-		Local<External> ret = External::New(isolate, env->NewGlobalRef(obj));
-		env->DeleteLocalRef(obj);
-		Persistent<External>* persistent = new Persistent<External>(isolate, ret);
-		persistent->SetWeak(env, wrapCallback);
-		while(!isolate->IdleNotification(1000));
-		return ret;
-	}
 
 	inline void ThrowJavaException(JNIEnv* env, Isolate* isolate) {
 		env->PushLocalFrame(0);
@@ -182,19 +192,34 @@ namespace java {
 				ThrowJavaException(env, isolate);
 				return;
 			}
-			RETURN(wrap(env, cls, isolate));
+			RETURN(JavaObject::wrap(env, cls, isolate));
 			
 		}
 
+		// getClass(vm, obj)
+		void getClass(const FunctionCallbackInfo<Value>& args) {
+			Isolate* isolate = Isolate::GetCurrent();
+			EscapableHandleScope handle_scope(isolate);
+			JavaVM* jvm = GET_JVM(args);
+
+			JNIEnv* env = GET_ENV(jvm);
+			jobject obj = UNWRAP(args[1], jobject); // a global reference
+			RETURN(JavaObject::wrap(env, env->GetObjectClass(obj), isolate));
+		}
+
+
+		// findMethod(vm, cls, name, signature, isStatic)
 		void findMethod(const FunctionCallbackInfo<Value>& args) {
 			Isolate* isolate = Isolate::GetCurrent();
 			EscapableHandleScope handle_scope(isolate);
 			JavaVM* jvm = GET_JVM(args);
 
 			JNIEnv* env = GET_ENV(jvm);
-			jclass cls = GET_PTR(args, 1, jclass); // a global reference
+			jclass cls = UNWRAP(args[1], jclass); // a global reference
 
-			jmethodID methodID = env->GetMethodID(cls, *String::Utf8Value(args[2]), *String::Utf8Value(args[3]));
+			jmethodID methodID = args[4]->BooleanValue() ? 
+				env->GetStaticMethodID(cls, *String::Utf8Value(args[2]), *String::Utf8Value(args[3])) :
+				env->GetMethodID(cls, *String::Utf8Value(args[2]), *String::Utf8Value(args[3]));
 			RETURN(External::New(isolate, methodID));
 		}
 
@@ -210,10 +235,10 @@ namespace java {
 				Local<Value> arg = args->Get(i);
 				switch(ctypes[i]) {
 				case '$': // convert to jstring
-					val.l = arg->IsNull() ? NULL : arg->IsExternal() ? reinterpret_cast<jstring>(External::Cast(*arg)->Value()) : cast(env, arg);
+					val.l = arg->IsNull() ? NULL : arg->IsExternal() ? UNWRAP(arg, jstring) : cast(env, arg);
 					break;
 				case 'L':
-					val.l = arg->IsNull() ? NULL : reinterpret_cast<jobject>(External::Cast(*arg)->Value());
+					val.l = arg->IsNull() ? NULL : UNWRAP(arg, jobject);
 					break;
 				case 'Z':
 					val.z = arg->BooleanValue();
@@ -252,65 +277,105 @@ namespace java {
 			JavaVM* jvm = GET_JVM(args);
 
 			JNIEnv* env = GET_ENV(jvm);
-			jclass cls = GET_PTR(args, 1, jclass); // a global reference
+			jclass cls = UNWRAP(args[1], jclass); // a global reference
 			jmethodID methodID = GET_PTR(args, 2, jmethodID);
 			jvalue values[256];
 			env->PushLocalFrame(128);
 			parseValues(env, values, args[3], args[4]);			
 
 			jobject ref = env->NewObjectA(cls, methodID, values);
-			RETURN(wrap(env, ref, isolate));
+			RETURN(JavaObject::wrap(env, ref, isolate));
 			env->PopLocalFrame(NULL);
 		}
 
-		// invoke(vm, obj, methodID, types, args, retType)
+		// invoke(vm, obj, methodID, types, args, retType, isStatic)
 		void invoke(const FunctionCallbackInfo<Value>& args) {
 			Isolate* isolate = Isolate::GetCurrent();
 			EscapableHandleScope handle_scope(isolate);
 			JavaVM* jvm = GET_JVM(args);
 
 			JNIEnv* env = GET_ENV(jvm);
-			jobject obj = GET_PTR(args, 1, jobject); // a global reference
+			jobject obj = UNWRAP(args[1], jobject); // a global reference
 			jmethodID methodID = GET_PTR(args, 2, jmethodID);
 			jvalue values[256];
 			env->PushLocalFrame(128);
-			parseValues(env,values, args[3], args[4]);	
-			
+			parseValues(env,values, args[3], args[4]);
+
 			Local<Value> ret;
-			switch(**String::Utf8Value(args[5])) {
-			case 'V':
-				env->CallVoidMethodA(obj, methodID, values);
-				break;
-			case 'Z':
-				ret = Boolean::New(isolate, env->CallBooleanMethodA(obj, methodID, values));
-				break;				
-			case 'B':
-				ret = Integer::New(isolate, env->CallByteMethodA(obj, methodID, values));
-				break;
-			case 'S':
-				ret = Integer::New(isolate, env->CallShortMethodA(obj, methodID, values));
-				break;
-			case 'C':
-				ret = Integer::NewFromUnsigned(isolate, env->CallCharMethodA(obj, methodID, values));
-				break;
-			case 'I':
-				ret = Integer::New(isolate, env->CallIntMethodA(obj, methodID, values));
-				break;
-			case 'F':
-				ret = Number::New(isolate, env->CallFloatMethodA(obj, methodID, values));
-				break;
-			case 'D':
-				ret = Number::New(isolate, env->CallDoubleMethodA(obj, methodID, values));
-				break;
-			case 'J':
-				ret = Number::New(isolate, env->CallLongMethodA(obj, methodID, values));
-				break;
-			case '$':
-				ret = cast(env, isolate, (jstring) env->CallObjectMethodA(obj, methodID, values));
-				break;
-			case 'L':
-				ret = wrap(env, env->CallObjectMethodA(obj, methodID, values), isolate);
-				break;
+			if(args[6]->BooleanValue()) { // is static
+				jclass cls = (jclass) obj;
+			
+				switch(**String::Utf8Value(args[5])) {
+				case 'V':
+					env->CallStaticVoidMethodA(cls, methodID, values);
+					break;
+				case 'Z':
+					ret = Boolean::New(isolate, env->CallStaticBooleanMethodA(cls, methodID, values));
+					break;				
+				case 'B':
+					ret = Integer::New(isolate, env->CallStaticByteMethodA(cls, methodID, values));
+					break;
+				case 'S':
+					ret = Integer::New(isolate, env->CallStaticShortMethodA(cls, methodID, values));
+					break;
+				case 'C':
+					ret = Integer::NewFromUnsigned(isolate, env->CallStaticCharMethodA(cls, methodID, values));
+					break;
+				case 'I':
+					ret = Integer::New(isolate, env->CallStaticIntMethodA(cls, methodID, values));
+					break;
+				case 'F':
+					ret = Number::New(isolate, env->CallStaticFloatMethodA(cls, methodID, values));
+					break;
+				case 'D':
+					ret = Number::New(isolate, env->CallStaticDoubleMethodA(cls, methodID, values));
+					break;
+				case 'J':
+					ret = Number::New(isolate, env->CallStaticLongMethodA(cls, methodID, values));
+					break;
+				case '$':
+					ret = cast(env, isolate, (jstring) env->CallStaticObjectMethodA(cls, methodID, values));
+					break;
+				case 'L':
+					ret = JavaObject::wrap(env, env->CallStaticObjectMethodA(cls, methodID, values), isolate);
+					break;
+				}
+			} else {
+				switch(**String::Utf8Value(args[5])) {
+				case 'V':
+					env->CallVoidMethodA(obj, methodID, values);
+					break;
+				case 'Z':
+					ret = Boolean::New(isolate, env->CallBooleanMethodA(obj, methodID, values));
+					break;				
+				case 'B':
+					ret = Integer::New(isolate, env->CallByteMethodA(obj, methodID, values));
+					break;
+				case 'S':
+					ret = Integer::New(isolate, env->CallShortMethodA(obj, methodID, values));
+					break;
+				case 'C':
+					ret = Integer::NewFromUnsigned(isolate, env->CallCharMethodA(obj, methodID, values));
+					break;
+				case 'I':
+					ret = Integer::New(isolate, env->CallIntMethodA(obj, methodID, values));
+					break;
+				case 'F':
+					ret = Number::New(isolate, env->CallFloatMethodA(obj, methodID, values));
+					break;
+				case 'D':
+					ret = Number::New(isolate, env->CallDoubleMethodA(obj, methodID, values));
+					break;
+				case 'J':
+					ret = Number::New(isolate, env->CallLongMethodA(obj, methodID, values));
+					break;
+				case '$':
+					ret = cast(env, isolate, (jstring) env->CallObjectMethodA(obj, methodID, values));
+					break;
+				case 'L':
+					ret = JavaObject::wrap(env, env->CallObjectMethodA(obj, methodID, values), isolate);
+					break;
+				}
 			}
 			RETURN(ret);
 			env->PopLocalFrame(NULL);
@@ -324,6 +389,18 @@ namespace java {
 			jint errno = jvm->DestroyJavaVM();
 			CHECK_ERRNO(errno, "destroyVm failed");
 		}
+
+		void link(const FunctionCallbackInfo<Value>& args) {
+			Isolate* isolate = Isolate::GetCurrent();
+			HandleScope handle_scope(isolate);
+
+			void* handle = dlopen(*String::Utf8Value(args[0]), RTLD_LAZY | RTLD_GLOBAL);
+			if(!handle) {
+				THROW(dlerror());
+				return;
+			}
+			
+		}
 	}
 
 
@@ -331,16 +408,8 @@ namespace java {
 	void init(Handle<Object> exports) {
 		Isolate* isolate = Isolate::GetCurrent(); 
 		HandleScope handle_scope(isolate);
-
-		void* handle = dlopen(LD_LIB, RTLD_LAZY | RTLD_GLOBAL);
-		if(!handle) {
-			isolate->ThrowException(
-				Exception::Error(String::NewFromOneByte(isolate, reinterpret_cast<const uint8_t*>(dlerror())))
-			);
-			return;
-		}
-
 #define REGISTER(name)	NODE_SET_METHOD(exports, #name, vm::name);
+		REGISTER(link);
 		REGISTER(createVm);
 		REGISTER(dispose);
 		REGISTER(runMain);
@@ -348,6 +417,7 @@ namespace java {
 		REGISTER(findMethod);
 		REGISTER(newInstance);
 		REGISTER(invoke);
+		REGISTER(getClass);
 #undef REGISTER
 	}
 }

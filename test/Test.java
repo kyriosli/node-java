@@ -60,6 +60,7 @@ public class Test implements Runnable {
 
 	public Test method(Test a) {
 		System.out.println("ObjectMethod(this:" + (a == this) + ")");
+		if(a != this) System.out.println(a);
 		return a;
 	}
 
@@ -87,7 +88,7 @@ public class Test implements Runnable {
 		for(int n=5; n-- > 0; ) {
 			System.out.println(System.currentTimeMillis());
 			try {
-				Thread.sleep(1000);
+				Thread.sleep(100);
 			} catch(Exception e) {
 				e.printStackTrace();
 			}

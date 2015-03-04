@@ -1,7 +1,11 @@
+console.time("init");
 var bindings = require('./java.node');
+//
+initBinding();
+console.timeEnd("init");
 // creates an java vm.
 // We do not reinitialize a new vm if one has already been created and we losts its reference.
-// And note that once a vm is destroyed, createVm becomes unstable, its behavior is vendor-dependent.
+// And note that once a vm is destroyed, createVm becomes unstable, its behavior is vendor-specific.
 exports.createVm = function() {
 	// TODO: options
 	var options = []//["-verbose:jni"];
@@ -45,13 +49,16 @@ JavaClass.prototype = {
 		var ref = bindings.newInstance(this.vm, this.handle, method.id, method.types, parseArgs(arguments, method.types));
 		return new JavaObject(this.vm, this, ref);
 	},
-	findMethod: function(signature) {
+	findMethod: function(signature, isStatic) {
 		if(signature in this.methodCache) {
-			return this.methodCache[signature];
+			var method = this.methodCache[signature];
+			if(method.isStatic !== isStatic) 
+				throw new Exception("method not found");
+			return method;
 		}
 		var idx = signature.indexOf('('), 
 		name = signature.substr(0, idx), type = signature.substr(idx);
-		var methodID = bindings.findMethod(this.vm, this.handle, name, type);
+		var methodID = bindings.findMethod(this.vm, this.handle, name, type, isStatic);
 		var idx2 = type.indexOf(')'), arg = type.substring(1, idx2);
 		var argTypes = '', m;
 		while(m = rType.exec(arg)) {
@@ -68,10 +75,24 @@ JavaClass.prototype = {
 			types: argTypes,
 			retType: retType === '[' ? 'L' : 
 				retType === 'L' && type.substr(idx2 + 1) === 'Ljava/lang/String;' ? '$' :
-				retType
+				retType,
+			isStatic: isStatic
 		};
+	},
+	invoke: function(signature) {
+		return invoke(this, this.findMethod(signature, true), arguments);
+	},
+	asObject: function() {
+		return new JavaObject(this.vm, null, this.handle);
 	}
 };
+
+function invoke(receiver, method, args) {	
+	var ret = bindings.invoke(receiver.vm, receiver.handle,
+		method.id, method.types, parseArgs(args, method.types), method.retType, method.isStatic);
+	if(method.retType === 'L') ret = new JavaObject(receiver.vm, null, ret);
+	return ret;	
+}
 
 function parseArgs(args, types) {
 	var l, ret = Array.prototype.slice.call(args, 1);
@@ -104,15 +125,52 @@ JavaObject.prototype = {
 		var cls = this.cls;
 		if(!cls) {
 			// TODO
+			cls = this.cls = new JavaClass(this.vm, bindings.getClass(this.vm, this.handle));
 		}
 		return cls;
 	},
 	invoke: function(signature) {
-		var method = this.getClass().findMethod(signature);
-		console.log(method);
-		var ret = bindings.invoke(this.vm, this.handle, method.id, method.types, parseArgs(arguments, method.types), method.retType);
-		if(method.retType === 'L') ret = new JavaObject(this.vm, null, ret);
-		return ret;
+		return invoke(this, this.getClass().findMethod(signature, false), arguments);
+	},
+	asClass: function() {
+		return new JavaClass(this.vm, this.handle);
+	},
+	asObjectArray: function() {
+		return new JavaObjectArray(this.vm, this.handle);
 	}
 }
 
+function JavaObjectArray(vm, handle) {
+}
+
+function initBinding() {
+	var java_home = process.env.JAVA_HOME,
+		jre_home = process.env.JRE_HOME;
+	if(java_home === undefined && jre_home === undefined) {
+		throw new Error("neither JAVA_HOME nor JRE_HOME is found in environment variables");
+	}
+	var fs = require('fs');
+
+	var platform = process.platform, arch = process.arch;
+	
+	var paths = [];
+
+	switch(true) {
+	case java_home && platform === "linux" && arch === "x64" && test(java_home + "/jre/lib/amd64/server/libjvm.so"):
+	case jre_home && platform === "linux" && arch === "x64" && test(jre_home + "/lib/amd64/server/libjvm.so"):
+		break;
+
+	default:
+		throw new Error("jvm shared library not found. paths tested are: \n  "+ paths.join('\n  '));
+	}
+
+
+	function test(path) {
+		if(fs.existsSync(path)) {
+			bindings.link(path);
+			return true;
+		}
+		paths.push(path);
+	}
+
+}

@@ -1,14 +1,17 @@
 MODULES=\
 	java.o
 
+TESTS=\
+	test/index\
+	test/invoke
+
 CPP=g++
 TARGET=java.node
 
 NODE_PREFIX=$(shell dirname $$(dirname $$(which node)))
 UNAME=linux
-ARCH=amd64
 
-COMPILER=$(CPP) -c -fPIC -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/$(UNAME) -I$(NODE_PREFIX)/include/node -DLD_LIB="\"$(JAVA_HOME)/jre/lib/amd64/server/libjvm.so\""
+COMPILER=$(CPP) -c -fPIC -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/$(UNAME) -I$(NODE_PREFIX)/include/node
 LINKER=$(CPP) -shared
 
 all: test
@@ -21,8 +24,8 @@ $(TARGET): $(MODULES)
 	@echo 'compiling $@'
 	$(COMPILER) -o $@ $^
 
-test:  $(TARGET)
-	node test
+test:  $(TESTS)
+
 
 test/%:	$(TARGET)
 	node $@.js
