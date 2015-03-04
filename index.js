@@ -87,10 +87,10 @@ JavaClass.prototype = {
 	}
 };
 
-function invoke(receiver, method, args) {	
+function invoke(receiver, method, args) {
 	var ret = bindings.invoke(receiver.vm, receiver.handle,
 		method.id, method.types, parseArgs(args, method.types), method.retType, method.isStatic);
-	if(method.retType === 'L') ret = new JavaObject(receiver.vm, null, ret);
+	if(ret && method.retType === 'L') ret = new JavaObject(receiver.vm, null, ret);
 	return ret;	
 }
 
