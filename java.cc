@@ -47,6 +47,7 @@ namespace java {
 	public:
 		jobject	_obj;
 		static inline Local<Value> wrap (JNIEnv* env, jobject obj, Isolate* isolate) {
+			if(!obj) return Local<Value>();
 			JavaObject* ptr = new JavaObject(env, isolate, env->NewGlobalRef(obj));
 			return Local<External>::New(isolate, ptr->_ref);
 		}
@@ -56,7 +57,7 @@ namespace java {
 
 	inline Local<String> cast(JNIEnv* env, Isolate* isolate, jstring javastr) {
 		if(!javastr) {
-			return Null(isolate)->ToString();
+			return Local<String>();
 		}
 		
 		jsize strlen = env->GetStringLength(javastr);
@@ -67,6 +68,7 @@ namespace java {
 	}
 
 	inline jstring cast(JNIEnv* env, Local<Value> jsval) {
+		if(jsval->IsNull()) return NULL;
 		String::Value val(jsval);
 		int len = val.length();
 
@@ -247,7 +249,7 @@ namespace java {
 					val.b = arg->Uint32Value();
 					break;
 				case 'C':
-					val.c = arg->IsInt32() ? arg->Uint32Value() : **String::Utf8Value(arg);
+					val.c = arg->IsInt32() ? arg->Uint32Value() : **String::Value(arg);
 					break;
 				case 'S':
 					val.s = arg->Int32Value();
@@ -377,7 +379,9 @@ namespace java {
 					break;
 				}
 			}
-			RETURN(ret);
+			if(ret.IsEmpty()) args.GetReturnValue().SetNull();
+			else RETURN(ret);
+			
 			env->PopLocalFrame(NULL);
 		}
 

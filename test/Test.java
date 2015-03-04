@@ -73,6 +73,14 @@ public class Test implements Runnable {
 		System.out.println("\"" + s + "\" + '" + c + "'");
 		return s + c;
 	}
+
+	public Object nullMethod() {
+		return null;
+	}
+	
+	public String nullStringMethod() {
+		return null;
+	}
 	
 	public static void main(String[] args) {
 		System.out.println("hello world!");
