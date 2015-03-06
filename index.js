@@ -27,6 +27,9 @@ JavaVM.prototype = {
 		// cls is of form com/pkg/name/ClassName$SubClassName
 		bindings.runMain(this.vm, cls, args);
 	},
+	runMainAsync: function(cls, args) {
+		return bindings.runMain(this.vm, cls, args, true);
+	},
 	destroy: function() {
 		bindings.dispose(this.vm);
 		this.vm = null;

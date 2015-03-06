@@ -1,5 +1,6 @@
 MODULES=\
-	java.o
+	java.o\
+	async.o
 
 TESTS=\
 	test/index\

@@ -3,6 +3,9 @@
 #include<jni.h>
 #include<node.h>
 
+#include "async.h"
+#include<string.h>
+
 #define	JNI_VERSION	JNI_VERSION_1_6
 #define	THROW(msg)	isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, msg)))
 #define GET_PTR(args, idx, type)	static_cast<type>(External::Cast(*args[idx])->Value())
@@ -22,8 +25,90 @@
 #define RETURN(val)	args.GetReturnValue().Set(handle_scope.Escape(val))
 #define UNWRAP(arg, type)	static_cast<type>(static_cast<JavaObject*>(External::Cast(*arg)->Value())->_obj)
 
+
+
 namespace java {
 	using namespace v8;
+
+	void printw(jchar* out, const char* in, int len) {
+		for(int i = 0; i < len; i++)
+			out[i] = in[i];
+	}
+
+	const jchar* getJavaException(JNIEnv* env, int* len) {
+		env->PushLocalFrame(0);
+		jthrowable e = env->ExceptionOccurred();
+		env->ExceptionClear();
+		jclass cls = env->GetObjectClass(e);
+		static jmethodID getName = env->GetMethodID(env->GetObjectClass(cls), "getName", "()Ljava/lang/String;");
+		jstring clsName = (jstring) env->CallObjectMethod(cls, getName);
+
+		jmethodID getMessage = env->GetMethodID(cls, "getMessage", "()Ljava/lang/String;");
+		jstring message = (jstring) env->CallObjectMethod(e, getMessage);
+
+		jsize nameLen = env->GetStringLength(clsName),
+			msgLen = env->GetStringLength(message);
+
+		jchar* buf = new jchar[nameLen + msgLen + 3];
+		const jchar* chars = env->GetStringCritical(clsName, NULL);
+		memcpy(buf, chars, nameLen << 1);
+		buf[nameLen] = buf[nameLen + 2] = ' ';
+		buf[nameLen + 1] = ':';
+		env->ReleaseStringCritical(clsName, chars);
+
+		chars = env->GetStringCritical(message, NULL);
+		memcpy(buf + nameLen + 3, chars, msgLen << 1);
+		env->ReleaseStringCritical(message, chars);
+		
+		if(len) *len = nameLen + msgLen + 3;
+		env->PopLocalFrame(NULL);
+		return buf;
+	}
+
+	inline void ThrowException(const jchar* msg, int msgLen, Isolate* isolate) {
+		Local<String> jsmsg = String::NewFromTwoByte(isolate, msg, String::kNormalString, msgLen);
+		isolate->ThrowException(Exception::Error(jsmsg));
+		delete[] msg;
+	}
+
+	inline void ThrowJavaException(JNIEnv* env, Isolate* isolate) {
+		int len;
+		const jchar* msg = getJavaException(env, &len);
+		ThrowException(msg, len, isolate);
+	}
+
+	void async::Task::execute() {
+		JNIEnv* env;
+		jint errno = vm->AttachCurrentThread((void**) &env, NULL);
+		if(errno) {
+			char buf[64];
+			int count = sprintf(buf, "AttachCurrentThread failed with errno %d", errno);
+			jchar* msg = new jchar[count];
+			printw(msg, buf, count);
+			reject(msg, count);
+			return;
+		}
+		run(env); // this is virtual
+	}
+
+	void async::Task::resolve() {
+		Isolate* isolate = Isolate::GetCurrent();
+		HandleScope handle_scope(isolate);
+
+		Local<Promise::Resolver> res = Local<Promise::Resolver>::New(isolate, resolver);		
+		
+		switch(resolved_type) {
+		case 'e': {// exception
+			// reject
+			Local<String> jsmsg = String::NewFromTwoByte(isolate, resolved.msg, String::kNormalString, msg_len);
+			delete[] resolved.msg;
+			res->Reject(Exception::Error(jsmsg));
+			return;
+		}
+		default:
+			res->Resolve(Undefined(isolate));
+		}
+	}
 
 	typedef class JavaObject {
 	private:
@@ -76,21 +161,6 @@ namespace java {
 	}
 
 
-	inline void ThrowJavaException(JNIEnv* env, Isolate* isolate) {
-		env->PushLocalFrame(0);
-		jthrowable e = env->ExceptionOccurred();
-		env->ExceptionClear();
-		jclass cls = env->GetObjectClass(e);
-		static jmethodID getName = env->GetMethodID(env->GetObjectClass(cls), "getName", "()Ljava/lang/String;");
-		jstring clsName = (jstring) env->CallObjectMethod(cls, getName);
-
-		jmethodID getMessage = env->GetMethodID(cls, "getMessage", "()Ljava/lang/String;");
-		jstring message = (jstring) env->CallObjectMethod(e, getMessage);
-
-		Local<String> msg = String::Concat(String::Concat(cast(env, isolate, clsName), String::NewFromUtf8(isolate, " : ")), cast(env, isolate, message));
-		isolate->ThrowException(Exception::Error(msg));
-		env->PopLocalFrame(NULL);
-	}
 
 	namespace vm {
 		void createVm(const FunctionCallbackInfo<Value>& args) { // int argc, char*
@@ -137,9 +207,43 @@ namespace java {
 			RETURN(External::New(isolate, jvm));
 	    }
 
-		void runMain(const FunctionCallbackInfo<Value>& args) {// handle, string cls, array[] args
+		class AsyncMainTask : public async::Task {
+		private:
+			jclass cls;
+			jmethodID main;
+			jobjectArray args;
+		public:
+			AsyncMainTask(JavaVM* vm, JNIEnv* env, jclass cls, jmethodID main, jobjectArray args, Isolate* isolate) :
+				Task(vm, isolate),
+				cls(static_cast<jclass>(env->NewGlobalRef(cls))),
+				main(main),
+				args(static_cast<jobjectArray>(env->NewGlobalRef(args))) {}
+
+
+			void run (JNIEnv* env) {
+				jvalue jargs;
+				jargs.l = args;
+				env->CallStaticVoidMethodA(cls, main, &jargs);
+				// check exception
+
+				
+
+				if(env->ExceptionCheck()) {
+					int len;
+					const jchar* msg = getJavaException(env, &len);
+					reject(msg, len);
+				}
+				
+				env->DeleteGlobalRef(cls);
+				env->DeleteGlobalRef(args);
+				vm->DetachCurrentThread();
+			}
+
+		};
+
+		void runMain(const FunctionCallbackInfo<Value>& args) {// handle, string cls, array[] args, boolean async
 			Isolate* isolate = Isolate::GetCurrent();
-			HandleScope handle_scope(isolate);
+			EscapableHandleScope handle_scope(isolate);
 
 			JavaVM* jvm = GET_JVM(args);
 
@@ -169,16 +273,21 @@ namespace java {
 			for(int i=0; i<argc; i++) {
 				env->SetObjectArrayElement(javaArgs, i, cast(env, argv->Get(i)));
 			}
-			jvalue vals[1];
-			vals[0].l = javaArgs;
 
-			env->CallStaticVoidMethodA(cls, main, vals);
+			if(args[3]->BooleanValue()) { // async
+				AsyncMainTask* task = new AsyncMainTask(jvm, env, cls, main, javaArgs, isolate);
+				task->enqueue();
+				RETURN(task->promise(isolate));
+			} else {
+				jvalue jargs;
+				jargs.l = javaArgs;
+				env->CallStaticVoidMethodA(cls, main, &jargs);
 
-			// check exception
-			if(env->ExceptionCheck()) {
-				ThrowJavaException(env, isolate);
+				// check exception
+				if(env->ExceptionCheck()) {
+					ThrowJavaException(env, isolate);
+				}
 			}
-
 			env->PopLocalFrame(NULL);
 		}
 
@@ -304,6 +413,9 @@ namespace java {
 			parseValues(env,values, args[3], args[4]);
 
 			Local<Value> ret;
+
+			//char retType = **String::Utf8Value(args[5]);
+
 			if(args[6]->BooleanValue()) { // is static
 				jclass cls = (jclass) obj;
 			
