@@ -1,0 +1,26 @@
+#include<uv.h>
+#include "async.h"
+
+using java::async::Task;
+
+void call(uv_work_t* work) {
+	// printf("isolate is: %x", v8::Isolate::GetCurrent());
+	Task* task = (Task*) work->data;
+	task->execute();
+}
+
+void after_call(uv_work_t* work, int status) {
+	Task* task = (Task*) work->data;
+	task->resolve();
+	// printf("isolate is: %x", v8::Isolate::GetCurrent());
+	delete task;
+	delete work;
+}
+
+void java::async::Task::enqueue() {
+	static uv_loop_t* loop = uv_default_loop();
+	uv_work_t* work = new uv_work_t;
+	work->data = this;
+	uv_queue_work(loop, work, call, after_call);
+}
+
