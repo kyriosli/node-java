@@ -83,6 +83,9 @@ public class Test implements Runnable {
 	}
 	
 	public static void main(String[] args) {
+		if(args.length == 1 && args[0].equals("willthrow")) {
+			throw new RuntimeException(System.currentTimeMillis() + ": " + args[0]);
+		}
 		System.out.println("hello world!");
 		for(String arg: args) {
 			System.out.println(arg);
