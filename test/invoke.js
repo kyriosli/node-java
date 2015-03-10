@@ -3,21 +3,19 @@ var assert = require('assert');
 var java = require('../');
 
 var vm = java.createVm();
-// new Date().toString()
-console.log("new Date(Date.now()).toString(): " + vm.findClass("java/util/Date").newInstance("J", Date.now()).invoke("toString()Ljava/lang/String;"));
-console.time('static');
-// invokeStatic
-var System = vm.findClass('java/lang/System');
-console.log("System.currentTimeMillis(): " + System.invoke('currentTimeMillis()J'));
-console.log("Math.random(): " + vm.findClass("java/lang/Math").invoke('random()D'));
-
-console.timeEnd('static');
 // newInstance
-console.time('new');
 var javaObject = vm.findClass("test/Test").newInstance('ZBCSIFDJLjava/lang/String;', 
 	true, 127, 'A', 4095, 1048575, 12.34, Math.PI, Date.now(), 'Hello world');
 
-console.timeEnd('new');
+console.log('invoke hashCode() 10w times');
+console.time('invoke10w');
+
+for(var i=0; i<1e5; i++) {
+	javaObject.invoke('hashCode()I');
+}
+
+console.timeEnd('invoke10w');
+
 console.time('invoke');
 
 javaObject.invoke('method(Ljava/lang/String;)V', 'test');
@@ -42,3 +40,26 @@ assert.strictEqual(javaObject.invoke("method(Ltest/Test;)Ltest/Test;", null), nu
 var str = javaObject.invoke("method(Ljava/lang/String;I)Ljava/lang/Object;", "foobar", 3);
 assert.strictEqual(javaObject.invoke("method(Ljava/lang/String;C)Ljava/lang/String;", str, 'z'), 'barz');
 console.timeEnd('invoke');
+
+
+var _e;
+try {
+	javaObject.invoke('notFound()V')
+		
+} catch(e) {
+	assert.strictEqual(e.message, "method `notFound' with signature `()V' not found.");
+	_e = true;
+}
+assert(_e);
+
+
+
+// new Date().toString()
+console.log("new Date(Date.now()).toString(): " + vm.findClass("java/util/Date").newInstance("J", Date.now()).invoke("toString()Ljava/lang/String;"));
+console.time('static');
+// invokeStatic
+var System = vm.findClass('java/lang/System');
+console.log("System.currentTimeMillis(): " + System.invoke('currentTimeMillis()J'));
+console.log("Math.random(): " + vm.findClass("java/lang/Math").invoke('random()D'));
+
+console.timeEnd('static');

@@ -6,15 +6,14 @@
 namespace java {
 	namespace async {
 		using namespace v8;
-		typedef union {
-			jvalue value;
-			const jchar* msg;
-		} resolve_info;
 
 		class Task {
 		protected:
 			Persistent<Promise::Resolver> resolver;
-			resolve_info resolved;
+			union {
+				jvalue value;
+				const jchar* msg;
+			};
 			char resolved_type;
 			int msg_len;
 		public:
@@ -25,19 +24,25 @@ namespace java {
 				
 			}
 			void execute();
-			virtual void run(JNIEnv* env) = 0; 
+			virtual void run(JNIEnv* env) = 0;
 			void enqueue ();
-			void resolve();
+			void onFinish();
 		
 			inline Local<Promise> promise(Isolate* isolate) {
 				return Local<Promise::Resolver>::New(isolate, resolver)->GetPromise();
 			}
 
-			inline void reject(const jchar* msg, int msg_len_) {
+			inline void reject(const jchar* msg_, int msg_len_) {
 				resolved_type = 'e';
-				resolved.msg = msg;
+				msg = msg_;
 				msg_len = msg_len_;
 			}
+
+			inline void resolve(const char type, jvalue val) {
+				resolved_type = type;
+				value = val;
+			}
+
 
 		};
 
