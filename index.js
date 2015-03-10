@@ -45,6 +45,17 @@ function JavaClass(vm, handle) {
 
 var rType = /\[*(?:L[^;]+;|[ZBCSIFDJ])/g;
 
+function invoker(isStatic, async) {
+
+	return function (signature) {
+		var cls = isStatic ? this : this.getClass();
+		var method = cls.findMethod(signature, isStatic);
+		var ret = (async ? bindings.invokeAsync : bindings.invoke)(this.vm, this.handle, method.id, method.types, parseArgs(arguments, method.types));
+		if(ret && !async && method.wrap) return new JavaObject(this.vm, null, ret);
+		return ret;
+	}
+}
+
 JavaClass.prototype = {
 	newInstance: function(signature) {
 		signature = signature || '';
@@ -63,7 +74,12 @@ JavaClass.prototype = {
 		name = signature.substr(0, idx), type = signature.substr(idx);
 		var methodID = bindings.findMethod(this.vm, this.handle, name, type, isStatic);
 		var idx2 = type.indexOf(')'), arg = type.substring(1, idx2);
-		var argTypes = '', m;
+		var retType = type[idx2 + 1];
+		retType = retType === '[' ? 'L' : 
+				retType === 'L' && type.substr(idx2 + 1) === 'Ljava/lang/String;' ? '$' :
+				retType;
+		var argTypes = retType + (isStatic ? '#' : '@'), m;
+
 		while(m = rType.exec(arg)) {
 			var argType = m[0][0];
 			argTypes += argType === '[' ? 'L' : 
@@ -71,48 +87,38 @@ JavaClass.prototype = {
 				argType;
 		}
 
-		var retType = type[idx2 + 1];
 
 		return this.methodCache[signature] = {
 			id: methodID,
 			types: argTypes,
-			retType: retType === '[' ? 'L' : 
-				retType === 'L' && type.substr(idx2 + 1) === 'Ljava/lang/String;' ? '$' :
-				retType,
+			wrap: retType === 'L',
 			isStatic: isStatic
 		};
 	},
-	invoke: function(signature) {
-		return invoke(this, this.findMethod(signature, true), arguments);
-	},
+	invoke: invoker(true, false),
+	invokeAsync: invoker(true, true),
 	asObject: function() {
 		return new JavaObject(this.vm, null, this.handle);
 	}
 };
 
-function invoke(receiver, method, args) {
-	var ret = bindings.invoke(receiver.vm, receiver.handle,
-		method.id, method.types, parseArgs(args, method.types), method.retType, method.isStatic);
-	if(ret && method.retType === 'L') ret = new JavaObject(receiver.vm, null, ret);
-	return ret;	
-}
 
 function parseArgs(args, types) {
-	var l, ret = Array.prototype.slice.call(args, 1);
+	var l, ret = [];
 	for(var i = 0, l = types.length; i < l; i++) {
+		var val = args[i + 1];
 		var type = types[i];
 		if(type === 'L') { // object
-			var val = ret[i];
-			ret[i] = val && val.handle || null;
+			val = val && val.handle || null;
 		} else if(type === '$') { // string
 			// a java string maybe passed as a JavaObject
-			val = ret[i];
 			if(val) {
-				ret[i] = val.handle || String(val);
+				val = val.handle || String(val);
 			} else if(val === undefined) {
-				ret[i] = null;
+				val = null;
 			}
 		}
+		ret[i] = val;
 	}
 	return ret;
 }
@@ -130,11 +136,11 @@ JavaObject.prototype = {
 			// TODO
 			cls = this.cls = new JavaClass(this.vm, bindings.getClass(this.vm, this.handle));
 		}
+		//this.getClass = function() {return cls};
 		return cls;
 	},
-	invoke: function(signature) {
-		return invoke(this, this.getClass().findMethod(signature, false), arguments);
-	},
+	invoke: invoker(false, false),
+	invokeAsync: invoker(false, true),
 	asClass: function() {
 		return new JavaClass(this.vm, this.handle);
 	},

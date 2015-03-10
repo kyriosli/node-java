@@ -1,5 +1,6 @@
 MODULES=\
 	java.o\
+	java_invoke.o\
 	async.o
 
 TESTS=\

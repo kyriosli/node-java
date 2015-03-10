@@ -32,8 +32,7 @@ setTimeout(function(){
 	}).then(function()	{
 		throw new Error("should not be called")
 	}, function(err) {
-		console.error(err.stack);
-		assert(err);
+		assert(/^java.lang.RuntimeException : \d{13}: willthrow$/.test(err.message));
 		vm.destroy();
 		console.log("vm destroyed");
 		vm_destroyed = true;
