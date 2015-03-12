@@ -1,5 +1,5 @@
 #include "java.h"
-
+#include<string.h>
 
 const jchar *java::getJavaException(JNIEnv *env, int *len) {
     env->PushLocalFrame(0);

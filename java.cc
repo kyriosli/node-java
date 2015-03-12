@@ -269,7 +269,7 @@ namespace java {
             JNIEnv *env;
             SAFE_GET_ENV(jvm, env)
             jclass cls = UNWRAP(args[1], jclass); // a global reference
-            JavaMethod *method = GET_PTR(args, 2, JavaMethod);
+            JavaMethod *method = GET_PTR(args, 2, JavaMethod*);
             jvalue values[256];
             env->PushLocalFrame(128);
             parseValues(env, method, args, values, 3);
