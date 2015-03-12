@@ -1,7 +1,9 @@
 MODULES=\
 	java.o\
 	java_invoke.o\
-	async.o
+	java_exception.o\
+	async.o\
+	java_async.o
 
 TESTS=\
 	test/index\
