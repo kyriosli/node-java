@@ -88,11 +88,12 @@ namespace java {
 
         }; // End class AsyncMainTask
 
-        void runMain(const FunctionCallbackInfo <Value> &args) {// handle, string cls, array[] args, boolean async
+        // runMain(vm, cls, args, async)
+        void runMain(const FunctionCallbackInfo <Value> &args) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
 
-            JavaVM *jvm = GET_JVM(args);
+            JavaVM *jvm = GET_PTR(args, 0, JavaVM*);
 
             JNIEnv *env;
             SAFE_GET_ENV(jvm, env)
@@ -139,7 +140,7 @@ namespace java {
             env->PopLocalFrame(NULL);
         }
 
-        // findClass(name)
+        // findClass(vm, name)
         void findClass(const FunctionCallbackInfo <Value> &args) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
@@ -156,28 +157,27 @@ namespace java {
             RETURN(JavaObject::wrap(jvm, env, cls, isolate));
         }
 
-        // getClass(vm, obj)
+        // getClass(obj)
         void getClass(const FunctionCallbackInfo <Value> &args) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaVM *jvm = GET_JVM(args);
+            JavaObject *handle = GET_PTR(args, 0, JavaObject*);
 
-            JNIEnv *env;
-            SAFE_GET_ENV(jvm, env)
-            jobject obj = UNWRAP(args[1], jobject); // a global reference
-            RETURN(JavaObject::wrap(jvm, env, env->GetObjectClass(obj), isolate));
+            JNIEnv *env = handle->env;
+
+            RETURN(JavaObject::wrap(jvm, env, env->GetObjectClass(handle->_obj), isolate));
         }
 
 
-        // findMethod(vm, cls, signature, isStatic)
+        // findMethod(cls, signature, isStatic)
         void findMethod(const FunctionCallbackInfo <Value> &args) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaVM *jvm = GET_JVM(args);
+            JavaObject *handle = GET_PTR(args, 0, JavaObject*);
+            JavaMethod *method = GET_PTR(args, 1, JavaMethod*);
 
-            JNIEnv *env;
-            SAFE_GET_ENV(jvm, env)
-            jclass cls = UNWRAP(args[1], jclass); // a global reference
+            JNIEnv *env = handle->env;
+            jclass cls = (jclass) handle->_obj; // a global reference
 
 
             bool isStatic = args[3]->BooleanValue();
@@ -261,22 +261,22 @@ namespace java {
         }
 
 
-        // newInstance(vm, cls, method, ...args)
+        // newInstance(cls, method, args)
         void newInstance(const FunctionCallbackInfo <Value> &args) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaVM *jvm = GET_JVM(args);
+            JavaObject *handle = GET_PTR(args, 0, JavaObject*);
+            JavaMethod *method = GET_PTR(args, 1, JavaMethod*);
 
-            JNIEnv *env;
-            SAFE_GET_ENV(jvm, env)
-            jclass cls = UNWRAP(args[1], jclass); // a global reference
-            JavaMethod *method = GET_PTR(args, 2, JavaMethod*);
+            JNIEnv *env = handle->env;
+            jclass cls = (jclass) handle->_obj; // a global reference
+
             jvalue values[256];
             env->PushLocalFrame(128);
-            parseValues(env, method, args, values, 3);
+            parseValues(env, method, args[2], values);
 
             jobject ref = env->NewObjectA(cls, method->methodID, values);
-            RETURN(JavaObject::wrap(jvm, env, ref, isolate));
+            RETURN(JavaObject::wrap(handle->jvm, env, ref, isolate));
             env->PopLocalFrame(NULL);
         }
 
@@ -288,9 +288,9 @@ namespace java {
             jobject globalRefs[256];
             int globalRefCount;
 
-            AsyncInvokeTask(JavaVM *vm, Isolate *isolate, JNIEnv *env, jobject obj, JavaMethod *method) :
-                    Task(vm, isolate),
-                    obj(env->NewGlobalRef(obj)),
+            AsyncInvokeTask(Isolate *isolate, JavaObject *handle, JavaMethod *method) :
+                    Task(handle->jvm, isolate),
+                    obj(handle->env->NewGlobalRef(handle->_obj)),
                     method(method),
                     globalRefCount(1) {
                 globalRefs[0] = obj;
@@ -313,19 +313,18 @@ namespace java {
         };
 
 
-        // invokeAsync(vm, obj, method, ...args)
+        // invokeAsync(obj, method, args)
         void invokeAsync(const FunctionCallbackInfo <Value> &args) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaVM *jvm = GET_JVM(args);
+            JavaObject *handle = GET_PTR(args, 0, JavaObject*);
+            JavaMethod *method = GET_PTR(args, 1, JavaMethod*);
 
-            JNIEnv *env;
-            SAFE_GET_ENV(jvm, env)
-            jobject obj = UNWRAP(args[1], jobject); // a global reference
-            JavaMethod *method = GET_PTR(args, 2, JavaMethod*);
+            JNIEnv *env = handle->env;
+
             env->PushLocalFrame(128);
 
-            AsyncInvokeTask *task = new AsyncInvokeTask(jvm, isolate, env, obj, method);
+            AsyncInvokeTask *task = new AsyncInvokeTask(isolate, handle, method);
 
             for (int count = method->args, i = 0; i < count; i++) {
                 jvalue &val = task->values[i];
@@ -341,29 +340,27 @@ namespace java {
             env->PopLocalFrame(NULL);
         }
 
-        // invokeAsync(vm, obj, method, ...args)
+        // invokeAsync(obj, method, args)
         void invoke(const FunctionCallbackInfo <Value> &args) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaVM *jvm = GET_JVM(args);
+            JavaObject *handle = GET_PTR(args, 0, JavaObject*);
+            JavaMethod *method = GET_PTR(args, 1, JavaMethod*);
 
-            JNIEnv *env;
-            SAFE_GET_ENV(jvm, env)
-            jobject obj = UNWRAP(args[1], jobject); // a global reference
-            JavaMethod *method = GET_PTR(args, 2, JavaMethod*);
+            JNIEnv *env = handle->env;
             jvalue values[256];
             env->PushLocalFrame(128);
-            parseValues(env, method, args, values, 3);
+            parseValues(env, method, args[2], values);
 
             jvalue ret;
-            java::invoke(env, obj, method, values, ret);
+            java::invoke(env, handle->_obj, method, values, ret);
 
             char retType = method->retType;
             if (retType != 'V') {
                 if ((retType == '$' || retType == 'L') && !ret.l) {
                     args.GetReturnValue().SetNull();
                 } else {
-                    RETURN(convert(retType, isolate, jvm, env, ret));
+                    RETURN(convert(retType, isolate, handle->jvm, env, ret));
                 }
             }
 
@@ -374,7 +371,7 @@ namespace java {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
 
-            JavaVM *jvm = GET_JVM(args);
+            JavaVM *jvm = GET_PTR(args, 0, JavaVM*);
             jint errno = jvm->DestroyJavaVM();
             CHECK_ERRNO(errno, "destroyVm failed");
         }
