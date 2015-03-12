@@ -115,7 +115,7 @@ namespace java {
         return env->NewString(*val, len);
     }
 
-    void invoke(jvalue &ret, const bool isStatic, const char retType, JNIEnv *env, jobject obj, jmethodID methodID, jvalue *values);
+    void invoke(JNIEnv *env, jobject obj, JavaMethod *method, jvalue *values, jvalue &ret);
 
     Local <Value> convert(const char type, Isolate *isolate, JNIEnv *env, jvalue val);
 

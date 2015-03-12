@@ -280,18 +280,14 @@ namespace java {
         }
 
         class AsyncInvokeTask : public async::Task {
-        private:
-            bool isStatic;
-            char retType;
+        public:
             jobject obj;
-            jmethodID methodID;
+            JavaMethod *method;
             jvalue values[256];
             jobject globalRefs[256];
             int globalRefCount;
-        public:
 
-            AsyncInvokeTask(JavaVM *vm, Isolate *isolate, JNIEnv *env, jobject obj, jmethodID methodID,
-                    const char *types, Local <Array> args, char retType, bool isStatic) :
+            AsyncInvokeTask(JavaVM *vm, Isolate *isolate, JNIEnv *env, jobject obj, JavaMethod *method) :
                     Task(vm, isolate),
                     obj(env->NewGlobalRef(obj)),
                     methodID(methodID),
@@ -300,14 +296,6 @@ namespace java {
                     globalRefCount(1) {
                 globalRefs[0] = obj;
 
-                int count = args->Length();
-                for (int i = 0; i < count; i++) {
-                    jvalue &val = values[i];
-                    parseValue(val, types[i], args->Get(i), env);
-                    if (types[i] == '$' || types[i] == 'L') {
-                        val.l = globalRefs[globalRefCount++] = env->NewGlobalRef(val.l);
-                    }
-                }
             }
 
             void run(JNIEnv *env) {
@@ -326,7 +314,7 @@ namespace java {
         };
 
 
-        // invokeAsync(vm, obj, methodID, types, args, retType, isStatic)
+        // invokeAsync(vm, obj, method, ...args)
         void invokeAsync(const FunctionCallbackInfo <Value> &args) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
@@ -334,18 +322,27 @@ namespace java {
 
             JNIEnv *env;
             SAFE_GET_ENV(jvm, env)
-
             jobject obj = UNWRAP(args[1], jobject); // a global reference
-            jmethodID methodID = GET_PTR(args, 2, jmethodID);
-            char retType = **String::Utf8Value(args[5]);
-            bool isStatic = args[6]->BooleanValue();
+            JavaMethod *method = GET_PTR(args, 2, JavaMethod*);
+            env->PushLocalFrame(128);
 
-            async::Task *task = new AsyncInvokeTask(jvm, isolate, env, UNWRAP(args[1], jobject), methodID, *String::Utf8Value(args[3]), Local<Array>::Cast(args[4]), retType, isStatic);
+            AsyncInvokeTask *task = new AsyncInvokeTask(jvm, isolate, env, obj, method);
+
+            for (int count = method->args, i = 0; i < count; i++) {
+                jvalue &val = task->values[i];
+                char argType = method->types[i];
+                parseValue(val, argType, args[i + 3], env);
+                if (argType == '$' || argType == 'L') {
+                    val.l = globalRefs[globalRefCount++] = env->NewGlobalRef(val.l);
+                }
+            }
+            
             task->enqueue();
             RETURN(task->promise(isolate));
+            env->PopLocalFrame(NULL);
         }
 
-        // invoke(vm, obj, methodID, types, args, retType, isStatic)
+        // invokeAsync(vm, obj, method, ...args)
         void invoke(const FunctionCallbackInfo <Value> &args) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
@@ -354,21 +351,15 @@ namespace java {
             JNIEnv *env;
             SAFE_GET_ENV(jvm, env)
             jobject obj = UNWRAP(args[1], jobject); // a global reference
-            jmethodID methodID = GET_PTR(args, 2, jmethodID);
-            String::Utf8Value signature(args[3]);
-            const char *ptr = *signature;
-
-            char retType = ptr[0];
-            bool isStatic = ptr[1] == '#';
-
+            JavaMethod *method = GET_PTR(args, 2, JavaMethod*);
             jvalue values[256];
             env->PushLocalFrame(128);
-            parseValues(env, values, ptr + 2, Local<Array>::Cast(args[4]));
+            parseValues(env, method, args, values, 3);
 
             jvalue ret;
+            java::invoke(env, obj, method, values, ret);
 
-            java::invoke(ret, isStatic, retType, env, obj, methodID, values);
-
+            char retType = method->retType;
             if (retType != 'V') {
                 if ((retType == '$' || retType == 'L') && !ret.l) {
                     args.GetReturnValue().SetNull();
