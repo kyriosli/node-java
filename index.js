@@ -105,7 +105,7 @@ function parseArgs(args, types) {
     return ret;
 }
 
-function JavaObject(cls, handle) {
+function JavaObject(handle, cls) {
     this.cls = cls;
     this.handle = handle;
 }
