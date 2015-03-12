@@ -248,7 +248,7 @@ namespace java {
 		}
 
 
-		// findMethod(vm, cls, name, signature, isStatic)
+		// findMethod(vm, cls, signature, isStatic)
 		void findMethod(const FunctionCallbackInfo<Value>& args) {
 			Isolate* isolate = Isolate::GetCurrent();
 			HandleScope handle_scope(isolate);
@@ -258,24 +258,88 @@ namespace java {
 			SAFE_GET_ENV(jvm, env)
 			jclass cls = UNWRAP(args[1], jclass); // a global reference
 
-			String::Utf8Value name(args[2]), signature(args[3]);
 
-			jmethodID methodID = args[4]->BooleanValue() ? 
-				env->GetStaticMethodID(cls, *name, *signature) :
-				env->GetMethodID(cls, *name, *signature);
+			bool isStatic = args[3]->BooleanValue();
+			String::Utf8Value signature(args[2]);
+			const char* ptr = *signature;
+			char name[128];
+
+			char* pname = name;
+			while(*ptr != '(') {
+				*pname = *ptr;
+				ptr++;
+				pname++;
+			}
+			*pname = 0;
+			fprintf(stderr, "findMethod(%s, %s)\n", name, ptr);
+
+			jmethodID methodID = isStatic ?
+				env->GetStaticMethodID(cls, name, ptr) :
+				env->GetMethodID(cls, name, ptr);
 
 			if(!methodID) {
 				char buf[128];
-				sprintf(buf, "method `%s' with signature `%s' not found.", *name, *signature);
+				sprintf(buf, "method `%s' not found.", *signature);
 				THROW(buf);
+				return;
 			}
 
-			RETURN(External::New(isolate, methodID));
+			JavaMethod* method = new JavaMethod(isolate, methodID, isStatic);
+			char* argTypes = (char*) method->argTypes;
+			int argc = 0, capacity = 16;
+
+			ptr++;
+			for(;;) {
+				char type = *ptr;
+				if(type == ')') break;
+				if(type == '[') {
+					type = 'L';
+					do {
+						ptr++;
+					} while(*ptr == '[');
+				} else if(type == 'L' && !strncmp(ptr, "Ljava/lang/String;", 18)) {
+					type = '$';
+					ptr += 17;
+				}
+				if(*ptr == 'L') {
+					// object or object array
+					do {
+						ptr++;
+					} while(*ptr != ';');
+				}
+				ptr++; // skip current arg
+
+				if(argc == capacity) {
+					capacity = capacity == 16 ? 256 : capacity << 1;	
+					char* tmp = new char[capacity];
+					strncpy(tmp, argTypes, argc);
+					if(capacity > 256) delete[] argTypes;
+					argTypes = tmp;
+				}
+				argTypes[argc++] = type;
+			}
+			argTypes[argc] = 0;
+			fprintf(stderr, "argType of %s is %s\n", *signature, argTypes);
+
+
+			// get ret type
+			ptr++;
+			char retType = *ptr;
+			if(retType == '[') {
+				retType = 'L';
+			}
+
+			method->args = argc;
+			method->argTypes = argTypes;
+			method->retType = retType;
+
+			RETURN(method->wrap(isolate));
+
 		}
 
 		
 
-		// newInstance(vm, cls, methodID, types, args)
+		// newInstance(vm, cls, method, ...args)
 		void newInstance(const FunctionCallbackInfo<Value>& args) {
 			Isolate* isolate = Isolate::GetCurrent();
 			HandleScope handle_scope(isolate);
@@ -284,10 +348,10 @@ namespace java {
 			JNIEnv* env;
 			SAFE_GET_ENV(jvm, env)
 			jclass cls = UNWRAP(args[1], jclass); // a global reference
-			jmethodID methodID = GET_PTR(args, 2, jmethodID);
+			JavaMethod* method = GET_PTR(args, 2, JavaMethod);
 			jvalue values[256];
 			env->PushLocalFrame(128);
-			parseValues(env, values, *String::Utf8Value(args[3]), Local<Array>::Cast(args[4]));
+			parseValues(env, method, args, values, 3);
 
 			jobject ref = env->NewObjectA(cls, methodID, values);
 			RETURN(JavaObject::wrap(env, ref, isolate));

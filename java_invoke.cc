@@ -2,15 +2,22 @@
 
 using namespace v8;
 
-void java::JavaObject::WeakCallback(const WeakCallbackData<External, JNIEnv>& data) {
-	JNIEnv* env = data.GetParameter();
-	JavaObject* ptr = (JavaObject*) data.GetValue()->Value();
-
+void java::ExternalResource::WeakCallback(const WeakCallbackData<External, ExternalResource>& data) {
+	ExternalResource* ptr = data.GetParameter();
 	ptr->_ref.Reset();	
-	env->DeleteGlobalRef(ptr->_obj);
 	delete ptr;
 }
 
+
+java::JavaObject::~JavaObject() {
+	env->DeleteGlobalRef(_obj);
+}
+
+java::JavaMethod::~JavaMethod() {
+	if(args > 16) {
+		delete[] argTypes;
+	}
+}
 
 void java::invoke(jvalue& ret, const bool isStatic, const char retType, JNIEnv* env, jobject obj, jmethodID methodID, jvalue* values) {
 	if(isStatic) { // is static

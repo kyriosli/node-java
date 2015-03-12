@@ -19,6 +19,8 @@ function JavaVM(vm) {
 	this.vm = vm;
 }
 
+var slice = Array.prototype.slice;
+
 JavaVM.prototype = {
 	findClass: function(name) {
 		return new JavaClass(this.vm, bindings.findClass(this.vm, name));
@@ -60,40 +62,18 @@ JavaClass.prototype = {
 	newInstance: function(signature) {
 		signature = signature || '';
 		var method = this.findMethod('<init>(' + signature + ')V');
-		var ref = bindings.newInstance(this.vm, this.handle, method.id, method.types, parseArgs(arguments, method.types));
+		var arr = slice.call(arguments, 1);
+		arr.unshift(this.vm, this.handle, method);
+
+		var ref = bindings.newInstance.apply(null, arr);
 		return new JavaObject(this.vm, this, ref);
 	},
 	findMethod: function(signature, isStatic) {
 		if(signature in this.methodCache) {
-			var method = this.methodCache[signature];
-			if(method.isStatic !== isStatic) 
-				throw new Exception("method not found");
-			return method;
-		}
-		var idx = signature.indexOf('('), 
-		name = signature.substr(0, idx), type = signature.substr(idx);
-		var methodID = bindings.findMethod(this.vm, this.handle, name, type, isStatic);
-		var idx2 = type.indexOf(')'), arg = type.substring(1, idx2);
-		var retType = type[idx2 + 1];
-		retType = retType === '[' ? 'L' : 
-				retType === 'L' && type.substr(idx2 + 1) === 'Ljava/lang/String;' ? '$' :
-				retType;
-		var argTypes = retType + (isStatic ? '#' : '@'), m;
-
-		while(m = rType.exec(arg)) {
-			var argType = m[0][0];
-			argTypes += argType === '[' ? 'L' : 
-				argType === 'L' && m[0] === 'Ljava/lang/String;' ? '$' :
-				argType;
+			return this.methodCache[signature];
 		}
 
-
-		return this.methodCache[signature] = {
-			id: methodID,
-			types: argTypes,
-			wrap: retType === 'L',
-			isStatic: isStatic
-		};
+		return this.methodCache[signature] = bindings.findMethod(this.vm, this.handle, signature, isStatic);
 	},
 	invoke: invoker(true, false),
 	invokeAsync: invoker(true, true),
