@@ -144,7 +144,7 @@ namespace java {
         void findClass(const FunctionCallbackInfo <Value> &args) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaVM *jvm = GET_JVM(args);
+            JavaVM *jvm = GET_PTR(args, 0, JavaVM*);
 
             JNIEnv *env;
             SAFE_GET_ENV(jvm, env)
@@ -165,7 +165,7 @@ namespace java {
 
             JNIEnv *env = handle->env;
 
-            RETURN(JavaObject::wrap(jvm, env, env->GetObjectClass(handle->_obj), isolate));
+            RETURN(JavaObject::wrap(handle->jvm, env, env->GetObjectClass(handle->_obj), isolate));
         }
 
 
@@ -174,7 +174,6 @@ namespace java {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
             JavaObject *handle = GET_PTR(args, 0, JavaObject*);
-            JavaMethod *method = GET_PTR(args, 1, JavaMethod*);
 
             JNIEnv *env = handle->env;
             jclass cls = (jclass) handle->_obj; // a global reference
@@ -205,7 +204,7 @@ namespace java {
                 return;
             }
 
-            JavaMethod *method = new JavaMethod(isolate, methodID, isStatic);
+            JavaMethod *method = new JavaMethod(methodID, isStatic);
             char *argTypes = (char *) method->argTypes;
             int argc = 0, capacity = 16;
 
