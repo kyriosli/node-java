@@ -19,10 +19,10 @@ java::JavaMethod::~JavaMethod() {
     }
 }
 
-void java::invoke(jvalue &ret, const bool isStatic, const char retType, JNIEnv *env, jobject obj, jmethodID methodID, jvalue *values) {
-    if (isStatic) { // is static
+void java::invoke(JNIEnv *env, jobject obj, JavaMethod *method, jvalue *values, jvalue &ret) {
+    if (method->isStatic) { // is static
         jclass cls = (jclass) obj;
-        switch (retType) {
+        switch (method->retType) {
             case 'V':
                 env->CallStaticVoidMethodA(cls, methodID, values);
                 break;
@@ -56,7 +56,7 @@ void java::invoke(jvalue &ret, const bool isStatic, const char retType, JNIEnv *
                 break;
         }
     } else {
-        switch (retType) {
+        switch (method->retType) {
             case 'V':
                 env->CallVoidMethodA(obj, methodID, values);
                 break;
