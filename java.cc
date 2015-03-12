@@ -179,8 +179,8 @@ namespace java {
             jclass cls = (jclass) handle->_obj; // a global reference
 
 
-            bool isStatic = args[3]->BooleanValue();
-            String::Utf8Value signature(args[2]);
+            bool isStatic = args[2]->BooleanValue();
+            String::Utf8Value signature(args[1]);
             const char *ptr = *signature;
             char name[128];
 
