@@ -28,28 +28,60 @@ namespace java {
 
 	using namespace v8;
 
-	typedef class JavaObject {
+	class ExternalResource {
+
 	private:
 		Persistent<External> _ref;
-
-		inline JavaObject (JNIEnv* env, Isolate* isolate, jobject obj) :
-			_obj(obj),
+		static void WeakCallback(const WeakCallbackData<External, ExternalResource>& data);
+	protected:
+		inline ExternalResource(Isolate* isolate) :
 			_ref(isolate, External::New(isolate, this)) {
-			_ref.SetWeak(env, WeakCallback);
+			_ref.SetWeak(this, WeakCallback);
 			_ref.MarkIndependent();
 		}
+	public:
+		virtual ~ExternalResource() = 0;
+		inline Local<External> wrap(Isolate* isolate) {
+			return Local<External>::New(isolate, _ref);
+		}
 
-		static void WeakCallback(const WeakCallbackData<External, JNIEnv>& data);
+	};
+
+	class JavaObject : public ExternalResource {
+	private:
+		JNIEnv* env;
+		inline JavaObject (JNIEnv* env, Isolate* isolate, jobject obj) :
+			ExternalResource(isolate),
+			env(env), _obj(env->NewGlobalRef(obj)) {}
+
 	public:
 		jobject	_obj;
 		static inline Local<Value> wrap (JNIEnv* env, jobject obj, Isolate* isolate) {
 			if(!obj) return Local<Value>();
-			JavaObject* ptr = new JavaObject(env, isolate, env->NewGlobalRef(obj));
-			return Local<External>::New(isolate, ptr->_ref);
+			ExternalResource* ptr = new JavaObject(env, isolate, obj);
+			return ptr->wrap(isolate);
 		}
 
+		~JavaObject(); 
 
-	} JavaObject;
+	};
+
+	class JavaMethod : public ExternalResource {
+	private:
+		char _argTypes[16];
+	public:
+		jmethodID methodID;
+		bool isStatic;
+		const char* argTypes;
+		int args;
+		char retType;
+
+		inline JavaMethod(Isolate* isolate, jmethodID methodID, bool isStatic) :
+			ExternalResource(isolate), isStatic(isStatic), methodID(methodID), argTypes(_argTypes) {}
+
+		~JavaMethod();
+
+	};
 
 	inline Local<String> cast(JNIEnv* env, Isolate* isolate, jstring javastr) {
 		if(!javastr) {
