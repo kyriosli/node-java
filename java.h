@@ -58,10 +58,10 @@ namespace java {
     class JavaObject : public ExternalResource {
     private:
         JavaVM *jvm;
+		JNIEnv *env;
 
-        inline JavaObject(JavaVM *jvm, Isolate *isolate, jobject obj) :
-                ExternalResource(isolate),
-                jvm(jvm), _obj(env->NewGlobalRef(obj)) {
+        inline JavaObject(JavaVM *jvm, JNIEnv *env, Isolate *isolate, jobject obj) :
+                ExternalResource(isolate), jvm(jvm), env(env), _obj(obj) {
         }
 
     public:
@@ -69,7 +69,7 @@ namespace java {
 
         static inline Local <Value> wrap(JavaVM *jvm, JNIEnv* env, jobject obj, Isolate *isolate) {
             if (!obj) return Local<Value>();
-            ExternalResource *ptr = new JavaObject(jvm, isolate, env->NewGlobalRef(obj));
+            ExternalResource *ptr = new JavaObject(jvm, env, isolate, env->NewGlobalRef(obj));
             env->DeleteLocalRef(obj);
             return ptr->wrap(isolate);
         }
@@ -118,7 +118,7 @@ namespace java {
 
     void invoke(JNIEnv *env, jobject obj, JavaMethod *method, jvalue *values, jvalue &ret);
 
-    Local <Value> convert(const char type, Isolate *isolate, JNIEnv *env, jvalue val);
+    Local <Value> convert(const char type, Isolate *isolate, JavaVM* jvm, JNIEnv *env, jvalue val);
 
     const jchar *getJavaException(JNIEnv *env, int *len);
 
