@@ -20,6 +20,7 @@ java::JavaMethod::~JavaMethod() {
 }
 
 void java::invoke(JNIEnv *env, jobject obj, JavaMethod *method, jvalue *values, jvalue &ret) {
+	jmethodID methodID = method->methodID;
     if (method->isStatic) { // is static
         jclass cls = (jclass) obj;
         switch (method->retType) {
