@@ -8,6 +8,9 @@ var javaObject = vm.findClass("test/Test").newInstance('ZBCSIFDJLjava/lang/Strin
 	true, 127, 'A', 4095, 1048575, 12.34, Math.PI, Date.now(), 'Hello world');
 
 console.log('invoke hashCode() 10w times');
+
+javaObject.invoke('hashCode()I'); // generate method cache
+
 console.time('invoke10w');
 
 for(var i=0; i<1e5; i++) {
