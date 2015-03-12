@@ -8,7 +8,6 @@
 #define JNI_VERSION    JNI_VERSION_1_6
 #define THROW(msg)    isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, msg)))
 #define GET_PTR(args, idx, type)    static_cast<type>(External::Cast(*args[idx])->Value())
-#define GET_JVM(args)    GET_PTR(args, 0, JavaVM*)
 #define CHECK_ERRNO(errno, msg)    if(errno) {\
         char errMsg[128];\
         sprintf(errMsg, msg " with error code: %d", errno);\
@@ -56,18 +55,17 @@ namespace java {
     };
 
     class JavaObject : public ExternalResource {
-    private:
-        JavaVM *jvm;
-		JNIEnv *env;
 
         inline JavaObject(JavaVM *jvm, JNIEnv *env, Isolate *isolate, jobject obj) :
                 ExternalResource(isolate), jvm(jvm), env(env), _obj(obj) {
         }
 
     public:
+        JavaVM *jvm;
+        JNIEnv *env;
         jobject _obj;
 
-        static inline Local <Value> wrap(JavaVM *jvm, JNIEnv* env, jobject obj, Isolate *isolate) {
+        static inline Local <Value> wrap(JavaVM *jvm, JNIEnv *env, jobject obj, Isolate *isolate) {
             if (!obj) return Local<Value>();
             ExternalResource *ptr = new JavaObject(jvm, env, isolate, env->NewGlobalRef(obj));
             env->DeleteLocalRef(obj);
@@ -78,7 +76,7 @@ namespace java {
 
     };
 
-    class JavaMethod : public ExternalResource {
+    class JavaMethod {
     private:
         char _argTypes[16];
     public:
@@ -88,12 +86,13 @@ namespace java {
         int args;
         char retType;
 
-        inline JavaMethod(Isolate *isolate, jmethodID methodID, bool isStatic) :
-                ExternalResource(isolate), isStatic(isStatic), methodID(methodID), argTypes(_argTypes) {
+        inline JavaMethod(jmethodID methodID, bool isStatic) :
+                isStatic(isStatic), methodID(methodID), argTypes(_argTypes) {
         }
 
-        ~JavaMethod();
-
+        inline Local <External> wrap(Isolate *isolate) {
+            return External::New(isolate, this);
+        }
     };
 
     inline Local <String> cast(JNIEnv *env, Isolate *isolate, jstring javastr) {
@@ -118,7 +117,7 @@ namespace java {
 
     void invoke(JNIEnv *env, jobject obj, JavaMethod *method, jvalue *values, jvalue &ret);
 
-    Local <Value> convert(const char type, Isolate *isolate, JavaVM* jvm, JNIEnv *env, jvalue val);
+    Local <Value> convert(const char type, Isolate *isolate, JavaVM *jvm, JNIEnv *env, jvalue val);
 
     const jchar *getJavaException(JNIEnv *env, int *len);
 
@@ -176,22 +175,14 @@ namespace java {
             }
         }
 
-        inline void parseValues(JNIEnv *env, JavaMethod *method, const FunctionCallbackInfo <Value> &args, jvalue *values, int start) {
+        inline void parseValues(JNIEnv *env, JavaMethod *method, Local <Value> args, jvalue *values) {
             int count = method->args;
             const char *types = method->argTypes;
 
+            Local <Array> $args = Local<Array>::Cast(args);
             for (int i = 0; i < count; i++) {
-                parseValue(values[i], types[i], args[i + start], env);
+                parseValue(values[i], types[i], $args->Get(i), env);
             }
-        }
-
-        inline void parseValues(JNIEnv *env, jvalue *values, const char *types, Local <Array> args) {
-            int count = args->Length();
-
-            for (int i = 0; i < count; i++) {
-                parseValue(values[i], types[i], args->Get(i), env);
-            }
-
         }
 
     }

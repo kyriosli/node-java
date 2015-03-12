@@ -13,12 +13,6 @@ java::JavaObject::~JavaObject() {
     env->DeleteGlobalRef(_obj);
 }
 
-java::JavaMethod::~JavaMethod() {
-    if (args > 16) {
-        delete[] argTypes;
-    }
-}
-
 void java::invoke(JNIEnv *env, jobject obj, JavaMethod *method, jvalue *values, jvalue &ret) {
     jmethodID methodID = method->methodID;
     if (method->isStatic) { // is static

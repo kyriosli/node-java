@@ -23,7 +23,7 @@ var slice = Array.prototype.slice;
 
 JavaVM.prototype = {
     findClass: function (name) {
-        return new JavaClass(this.vm, bindings.findClass(this.vm, name));
+        return new JavaClass(bindings.findClass(this.vm, name));
     },
     runMain: function (cls, args) {
         // cls is of form com/pkg/name/ClassName$SubClassName
@@ -38,8 +38,7 @@ JavaVM.prototype = {
     }
 };
 
-function JavaClass(vm, handle) {
-    this.vm = vm;
+function JavaClass(handle) {
     this.handle = handle;
 
     this.methodCache = {};
@@ -53,7 +52,7 @@ function invoker(isStatic, async) {
         var method = findMethod(isStatic ? this : this.getClass(), signature, isStatic);
         var arr = slice.call(arguments, 1);
 
-        return (async ? bindings.invokeAsync : bindings.invoke)(this.vm, this.handle, method, arr);
+        return (async ? bindings.invokeAsync : bindings.invoke)(this.handle, method, arr);
     }
 }
 
@@ -62,7 +61,7 @@ function findMethod(cls, signature, isStatic) {
     if (signature in methodCache)
         return methodCache[signature];
 
-    return methodCache[signature] = bindings.findMethod(cls.vm, cls.handle, signature, isStatic)
+    return methodCache[signature] = bindings.findMethod(cls.handle, signature, isStatic)
 }
 
 JavaClass.prototype = {
@@ -70,24 +69,24 @@ JavaClass.prototype = {
         var arr;
         if (arguments.length) {
             arr = slice.call(arguments, 1);
-            arr.unshift(this.vm, this.handle, findMethod(this, '<init>(' + signature + ')V', false));
+            arr.unshift(this.handle, findMethod(this, '<init>(' + signature + ')V', false));
         } else {
-            arr = [this.vm, this.handle, findMethod(this, '<init>()V', false)];
+            arr = [this.handle, findMethod(this, '<init>()V', false)];
         }
 
         var ref = bindings.newInstance.apply(null, arr);
-        return new JavaObject(this.vm, this, ref);
+        return new JavaObject(ref, this);
     },
     invoke: invoker(true, false),
     invokeAsync: invoker(true, true),
     asObject: function () {
-        return new JavaObject(this.vm, null, this.handle);
+        return new JavaObject(this.handle, null);
     }
 };
 
 
 function parseArgs(args, types) {
-    var l, ret = [];
+    var ret = [];
     for (var i = 0, l = types.length; i < l; i++) {
         var val = args[i + 1];
         var type = types[i];
@@ -106,8 +105,7 @@ function parseArgs(args, types) {
     return ret;
 }
 
-function JavaObject(vm, cls, handle) {
-    this.vm = vm;
+function JavaObject(cls, handle) {
     this.cls = cls;
     this.handle = handle;
 }
@@ -117,7 +115,7 @@ JavaObject.prototype = {
         var cls = this.cls;
         if (!cls) {
             // TODO
-            cls = this.cls = new JavaClass(this.vm, bindings.getClass(this.vm, this.handle));
+            cls = this.cls = new JavaClass(bindings.getClass(this.handle));
         }
         //this.getClass = function() {return cls};
         return cls;
@@ -125,14 +123,14 @@ JavaObject.prototype = {
     invoke: invoker(false, false),
     invokeAsync: invoker(false, true),
     asClass: function () {
-        return new JavaClass(this.vm, this.handle);
+        return new JavaClass(this.handle);
     },
     asObjectArray: function () {
-        return new JavaObjectArray(this.vm, this.handle);
+        return new JavaObjectArray(this.handle);
     }
-}
+};
 
-function JavaObjectArray(vm, handle) {
+function JavaObjectArray(handle) {
 }
 
 function initBinding() {
