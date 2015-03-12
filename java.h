@@ -57,19 +57,20 @@ namespace java {
 
     class JavaObject : public ExternalResource {
     private:
-        JNIEnv *env;
+        JavaVM *jvm;
 
-        inline JavaObject(JNIEnv *env, Isolate *isolate, jobject obj) :
+        inline JavaObject(JavaVM *jvm, Isolate *isolate, jobject obj) :
                 ExternalResource(isolate),
-                env(env), _obj(env->NewGlobalRef(obj)) {
+                jvm(jvm), _obj(env->NewGlobalRef(obj)) {
         }
 
     public:
         jobject _obj;
 
-        static inline Local <Value> wrap(JNIEnv *env, jobject obj, Isolate *isolate) {
+        static inline Local <Value> wrap(JavaVM *jvm, JNIEnv* env, jobject obj, Isolate *isolate) {
             if (!obj) return Local<Value>();
-            ExternalResource *ptr = new JavaObject(env, isolate, obj);
+            ExternalResource *ptr = new JavaObject(jvm, isolate, env->NewGlobalRef(obj));
+            env->DeleteLocalRef(obj);
             return ptr->wrap(isolate);
         }
 

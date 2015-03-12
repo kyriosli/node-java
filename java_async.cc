@@ -31,11 +31,11 @@ void java::async::Task::onFinish() {
                 int len = sprintf(errMsg, "`GetEnv' failed with error code: %d", errno);
                 res->Reject(Exception::Error(String::NewFromUtf8(isolate, errMsg, String::kNormalString, len)));
             } else {
-                res->Resolve(convert(resolved_type, isolate, env, value));
+                res->Resolve(convert(resolved_type, isolate, vm, env, value));
             }
         }
     } else {
-        res->Resolve(convert(resolved_type, isolate, NULL, value));
+        res->Resolve(convert(resolved_type, isolate, vm, NULL, value));
     }
 }
 

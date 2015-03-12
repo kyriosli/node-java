@@ -20,7 +20,7 @@ java::JavaMethod::~JavaMethod() {
 }
 
 void java::invoke(JNIEnv *env, jobject obj, JavaMethod *method, jvalue *values, jvalue &ret) {
-	jmethodID methodID = method->methodID;
+    jmethodID methodID = method->methodID;
     if (method->isStatic) { // is static
         jclass cls = (jclass) obj;
         switch (method->retType) {
@@ -93,7 +93,7 @@ void java::invoke(JNIEnv *env, jobject obj, JavaMethod *method, jvalue *values, 
     }
 }
 
-Local <Value> java::convert(const char type, Isolate *isolate, JNIEnv *env, jvalue val) {
+Local <Value> java::convert(const char type, Isolate *isolate, JavaVM *jvm, JNIEnv *env, jvalue val) {
 
     switch (type) {
         case 'Z':
@@ -115,7 +115,7 @@ Local <Value> java::convert(const char type, Isolate *isolate, JNIEnv *env, jval
         case '$':
             return cast(env, isolate, (jstring) val.l);
         case 'L':
-            return JavaObject::wrap(env, val.l, isolate);
+            return JavaObject::wrap(jvm, env, val.l, isolate);
     }
     return Local<Value>();
 }
