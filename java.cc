@@ -241,7 +241,7 @@ namespace java {
                 argTypes[argc++] = type;
             }
             argTypes[argc] = 0;
-            fprintf(stderr, "argType of %s is %s\n", *signature, argTypes);
+            // fprintf(stderr, "argType of %s is %s\n", *signature, argTypes);
 
 
             // get ret type
@@ -290,9 +290,7 @@ namespace java {
             AsyncInvokeTask(JavaVM *vm, Isolate *isolate, JNIEnv *env, jobject obj, JavaMethod *method) :
                     Task(vm, isolate),
                     obj(env->NewGlobalRef(obj)),
-                    methodID(methodID),
-                    retType(retType),
-                    isStatic(isStatic),
+                    method(method),
                     globalRefCount(1) {
                 globalRefs[0] = obj;
 
@@ -301,9 +299,9 @@ namespace java {
             void run(JNIEnv *env) {
                 env->PushLocalFrame(128);
                 jvalue ret;
-                invoke(ret, isStatic, retType, env, obj, methodID, values);
+                java::invoke(env, obj, method, values, ret);
 
-                resolve(retType, ret);
+                resolve(method->retType, ret);
 
                 env->PopLocalFrame(NULL);
 
@@ -330,10 +328,10 @@ namespace java {
 
             for (int count = method->args, i = 0; i < count; i++) {
                 jvalue &val = task->values[i];
-                char argType = method->types[i];
+                char argType = method->argTypes[i];
                 parseValue(val, argType, args[i + 3], env);
                 if (argType == '$' || argType == 'L') {
-                    val.l = globalRefs[globalRefCount++] = env->NewGlobalRef(val.l);
+                    val.l = task->globalRefs[task->globalRefCount++] = env->NewGlobalRef(val.l);
                 }
             }
             
