@@ -7,7 +7,7 @@
 
 using namespace v8;
 
-void async::Task::onFinish() {
+void java::async::Task::onFinish() {
     Isolate *isolate = Isolate::GetCurrent();
     HandleScope handle_scope(isolate);
 
@@ -39,7 +39,7 @@ void async::Task::onFinish() {
     }
 }
 
-void async::Task::execute() {
+void java::async::Task::execute() {
     JNIEnv *env;
     jint errno = vm->AttachCurrentThread((void **) &env, NULL);
     if (errno) {

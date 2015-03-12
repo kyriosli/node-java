@@ -30,7 +30,7 @@ namespace java {
     /*
     * reads and clears java exception info
     */
-    const jchar *java::getJavaException(JNIEnv *env, int *len);
+    const jchar *getJavaException(JNIEnv *env, int *len);
 
     class ExternalResource {
 
@@ -180,7 +180,7 @@ namespace java {
             const char *types = method->argTypes;
 
             for (int i = 0; i < count; i++) {
-                parseValue(values[i], types[i], args->Get(i + start), env);
+                parseValue(values[i], types[i], args[i + start], env);
             }
         }
 
