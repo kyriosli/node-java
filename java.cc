@@ -249,6 +249,8 @@ namespace java {
             char retType = *ptr;
             if (retType == '[') {
                 retType = 'L';
+            } else if (retType == 'L' && !strncmp(ptr, "Ljava/lang/String;", 18)) {
+                retTyle = '$';
             }
 
             method->args = argc;
@@ -334,7 +336,7 @@ namespace java {
                     val.l = task->globalRefs[task->globalRefCount++] = env->NewGlobalRef(val.l);
                 }
             }
-            
+
             task->enqueue();
             RETURN(task->promise(isolate));
             env->PopLocalFrame(NULL);
