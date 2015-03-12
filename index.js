@@ -50,10 +50,10 @@ var rType = /\[*(?:L[^;]+;|[ZBCSIFDJ])/g;
 function invoker(isStatic, async) {
 
     return function (signature) {
+        var method = findMethod(isStatic ? this : this.getClass(), signature, isStatic);
         var arr = slice.call(arguments, 1);
-        arr.unshift(this.vm, this.handle, findMethod(isStatic ? this : this.getClass(), signature, isStatic));
 
-        return (async ? bindings.invokeAsync : bindings.invoke).apply(null, arr);
+        return (async ? bindings.invokeAsync : bindings.invoke)(this.vm, this.handle, method, arr);
     }
 }
 

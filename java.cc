@@ -153,8 +153,7 @@ namespace java {
                 ThrowJavaException(env, isolate);
                 return;
             }
-            RETURN(JavaObject::wrap(env, cls, isolate));
-
+            RETURN(JavaObject::wrap(jvm, env, cls, isolate));
         }
 
         // getClass(vm, obj)
@@ -166,7 +165,7 @@ namespace java {
             JNIEnv *env;
             SAFE_GET_ENV(jvm, env)
             jobject obj = UNWRAP(args[1], jobject); // a global reference
-            RETURN(JavaObject::wrap(env, env->GetObjectClass(obj), isolate));
+            RETURN(JavaObject::wrap(jvm, env, env->GetObjectClass(obj), isolate));
         }
 
 
@@ -277,7 +276,7 @@ namespace java {
             parseValues(env, method, args, values, 3);
 
             jobject ref = env->NewObjectA(cls, method->methodID, values);
-            RETURN(JavaObject::wrap(env, ref, isolate));
+            RETURN(JavaObject::wrap(jvm, env, ref, isolate));
             env->PopLocalFrame(NULL);
         }
 
@@ -364,7 +363,7 @@ namespace java {
                 if ((retType == '$' || retType == 'L') && !ret.l) {
                     args.GetReturnValue().SetNull();
                 } else {
-                    RETURN(convert(retType, isolate, env, ret));
+                    RETURN(convert(retType, isolate, jvm, env, ret));
                 }
             }
 
