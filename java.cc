@@ -193,7 +193,7 @@ namespace java {
                 pname++;
             }
             *pname = 0;
-            fprintf(stderr, "findMethod(%s, %s)\n", name, ptr);
+            // fprintf(stderr, "findMethod(%s, %s)\n", name, ptr);
 
             jmethodID methodID = isStatic ?
                     env->GetStaticMethodID(cls, name, ptr) :
@@ -250,7 +250,7 @@ namespace java {
             if (retType == '[') {
                 retType = 'L';
             } else if (retType == 'L' && !strncmp(ptr, "Ljava/lang/String;", 18)) {
-                retTyle = '$';
+                retType = '$';
             }
 
             method->args = argc;
