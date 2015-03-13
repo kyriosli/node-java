@@ -331,7 +331,15 @@ namespace java {
                 jvalue ret;
                 java::invoke(env, obj, method, values, ret);
 
-                resolve(method->retType, ret);
+
+                if (env->ExceptionCheck()) {
+                    int len;
+                    const jchar *msg = getJavaException(env, &len);
+                    reject(msg, len);
+                } else {
+                    resolve(method->retType, ret);
+                }
+
 
                 env->PopLocalFrame(NULL);
 
