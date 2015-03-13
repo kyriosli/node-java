@@ -6,24 +6,31 @@ console.timeEnd("init");
 // creates an java vm.
 // We do not reinitialize a new vm if one has already been created and we losts its reference.
 // And note that once a vm is destroyed, createVm becomes unstable, its behavior is vendor-specific.
+var instance = null;
+
 exports.createVm = function () {
+    if (instance)
+        return instance;
     // TODO: options
     var options = []; //["-verbose:jni"];
     // Because JavaVMOption accepts zero-terminated cstring as its input, we must
     // make sure that the input strings does not contain \0.
-
-    return new JavaVM(bindings.createVm(options.length, options.join('\0')));
+    return instance = new JavaVM(bindings.createVm(options.length, options.join('\0')));
 };
 
 function JavaVM(vm) {
     this.vm = vm;
+    this.classCache = {};
 }
 
 var slice = Array.prototype.slice;
 
 JavaVM.prototype = {
     findClass: function (name) {
-        return new JavaClass(bindings.findClass(this.vm, name));
+        var classCache = this.classCache;
+        if (name in classCache) return classCache[name];
+
+        return classCache[name] = new JavaClass(name, bindings.findClass(this.vm, name));
     },
     runMain: function (cls, args) {
         // cls is of form com/pkg/name/ClassName$SubClassName
@@ -38,7 +45,8 @@ JavaVM.prototype = {
     }
 };
 
-function JavaClass(handle) {
+function JavaClass(name, handle) {
+    this.name = name;
     this.handle = handle;
 
     this.methodCache = {};
@@ -49,8 +57,10 @@ var rType = /\[*(?:L[^;]+;|[ZBCSIFDJ])/g;
 function invoker(isStatic, async) {
     return function (signature) {
         var method = findMethod(isStatic ? this : this.getClass(), signature, isStatic);
-//        var arr = slice.call(arguments, 1, arguments.length);
+
         var ret = (async ? bindings.invokeAsync : bindings.invoke)(this.handle, method, arguments);
+        // passing `arguments' into c++ code is the most efficient way
+
         if (ret !== null && typeof ret === 'object')
             return new JavaObject(ret, null);
         return ret;
@@ -67,11 +77,11 @@ function findMethod(cls, signature, isStatic) {
 
 JavaClass.prototype = {
     newInstance: function (signature) {
-        
+
         var method = findMethod(this, arguments.length ? '<init>(' + signature + ')V' : '<init>()V', false);
 
         var ref = bindings.newInstance(this.handle, method, arguments);
-		return new JavaObject(ref, this);
+        return new JavaObject(ref, this);
     },
     invoke: invoker(true, false),
     invokeAsync: invoker(true, true),
@@ -111,7 +121,14 @@ JavaObject.prototype = {
         var cls = this.cls;
         if (!cls) {
             // TODO
-            cls = this.cls = new JavaClass(bindings.getClass(this.handle));
+            var arr = bindings.getClass(this.handle, instance.classCache),
+                className = arr[0],
+                handle = arr[1];
+            if (!handle) {
+                return instance.classCache[className];
+            }
+
+            cls = this.cls = instance.classCache[className] = new JavaClass(className, handle);
         }
         //this.getClass = function() {return cls};
         return cls;

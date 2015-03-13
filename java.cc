@@ -140,7 +140,7 @@ namespace java {
             env->PopLocalFrame(NULL);
         }
 
-        // findClass(vm, name)
+        // findClass(vm, name, classCache)
         void findClass(const FunctionCallbackInfo <Value> &args) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
@@ -157,7 +157,7 @@ namespace java {
             RETURN(JavaObject::wrap(jvm, env, cls, isolate));
         }
 
-        // getClass(obj)
+        // getClass(obj, cache)
         void getClass(const FunctionCallbackInfo <Value> &args) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
@@ -165,7 +165,32 @@ namespace java {
 
             JNIEnv *env = handle->env;
 
-            RETURN(JavaObject::wrap(handle->jvm, env, env->GetObjectClass(handle->_obj), isolate));
+            env->PushLocalFrame(16);
+            jclass cls = env->GetObjectClass(handle->_obj);
+            static jmethodID GetClassName = env->GetMethodID(env->GetObjectClass(cls), "getName", "()Ljava/lang/String;");
+            jstring name = env->CallObjectMethod(cls, GetClassName);
+
+            jsize strlen = env->GetStringLength(name);
+            const jchar *chars = env->GetStringChars(name, NULL);
+            for (int i = 0; i < strlen; i++) {
+                if (chars[i] == '.') chars[i] = '/';
+            }
+            Local <String> clsName = String::NewFromTwoByte(isolate, chars, String::kNormalString, strlen);
+            env->ReleaseStringChars(name, chars);
+
+            Local <Object> classCache = Local<Object>::Cast(args[1]);
+
+            Maybe<bool> hasKey = classCache->Has(Context::Current(), clsName);
+
+            Local <Array> ret = Array::New(isolate, 2);
+            ret->Set(0, clsName);
+
+            if (!hasKey.isJust() || !hasKey.FromJust()) {
+                ret->Set(1, JavaObject::wrap(handle->jvm, env, env->GetObjectClass(handle->_obj), isolate));
+            }
+
+            RETURN(ret);
+            env->PopLocalFrame(16);
         }
 
 
