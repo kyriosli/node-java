@@ -199,7 +199,7 @@ namespace java {
 
             if (!methodID) {
                 char buf[128];
-                sprintf(buf, "method `%s' not found.", *signature);
+				sprintf(buf, "method `%s' with signature `%s' not found.", name, ptr);
                 THROW(buf);
                 return;
             }
