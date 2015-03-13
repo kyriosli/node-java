@@ -168,29 +168,33 @@ namespace java {
             env->PushLocalFrame(16);
             jclass cls = env->GetObjectClass(handle->_obj);
             static jmethodID GetClassName = env->GetMethodID(env->GetObjectClass(cls), "getName", "()Ljava/lang/String;");
-            jstring name = env->CallObjectMethod(cls, GetClassName);
+            jstring name = (jstring) env->CallObjectMethod(cls, GetClassName);
 
             jsize strlen = env->GetStringLength(name);
-            const jchar *chars = env->GetStringChars(name, NULL);
+            const jchar *chars = env->GetStringCritical(name, NULL);
+			jchar nameChars[256];
+
             for (int i = 0; i < strlen; i++) {
-                if (chars[i] == '.') chars[i] = '/';
+				jchar ch = chars[i];
+				nameChars[i] = ch == '.' ? '/' : ch;
             }
-            Local <String> clsName = String::NewFromTwoByte(isolate, chars, String::kNormalString, strlen);
+            Local <String> clsName = String::NewFromTwoByte(isolate, nameChars, String::kNormalString, strlen);
             env->ReleaseStringChars(name, chars);
+
 
             Local <Object> classCache = Local<Object>::Cast(args[1]);
 
-            Maybe<bool> hasKey = classCache->Has(Context::Current(), clsName);
+            bool hasKey = classCache->Has(clsName);
 
             Local <Array> ret = Array::New(isolate, 2);
             ret->Set(0, clsName);
 
-            if (!hasKey.isJust() || !hasKey.FromJust()) {
+            if (!hasKey) {
                 ret->Set(1, JavaObject::wrap(handle->jvm, env, env->GetObjectClass(handle->_obj), isolate));
             }
 
             RETURN(ret);
-            env->PopLocalFrame(16);
+            env->PopLocalFrame(NULL);
         }
 
 
