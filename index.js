@@ -58,7 +58,7 @@ function invoker(isStatic, async) {
     return async ? function (signature) {
         var method = findMethod(isStatic ? this : this.getClass(), signature, isStatic);
 
-        return bindings.invokeAsync(this.handle, method, arguments).then(invokeAsyncFilter);
+        return bindings.invokeAsync(this.handle, method, arguments).then(invokeFilter);
         // passing `arguments' into c++ code is the most efficient way
     } : function (signature) {
         var method = findMethod(isStatic ? this : this.getClass(), signature, isStatic);
