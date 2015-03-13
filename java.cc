@@ -230,6 +230,7 @@ namespace java {
                 char buf[128];
                 sprintf(buf, "method `%s' with signature `%s' not found.", name, ptr);
                 THROW(buf);
+                env->ExceptionClear();
                 return;
             }
 
