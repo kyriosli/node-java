@@ -58,7 +58,7 @@ function invoker(isStatic, async) {
     return async ? function (signature) {
         var method = findMethod(isStatic ? this : this.getClass(), signature, isStatic);
 
-        return bindings.invokeAsync(this.handle, method, arguments);
+        return bindings.invokeAsync(this.handle, method, arguments).then(invokeAsyncFilter);
         // passing `arguments' into c++ code is the most efficient way
     } : function (signature) {
         var method = findMethod(isStatic ? this : this.getClass(), signature, isStatic);
@@ -69,6 +69,12 @@ function invoker(isStatic, async) {
             return new JavaObject(ret, null);
         return ret;
     }
+}
+
+function invokeFilter(ret) {
+    if (ret !== null && typeof ret === 'object')
+        return new JavaObject(ret, null);
+    return ret;
 }
 
 function findMethod(cls, signature, isStatic) {
