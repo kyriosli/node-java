@@ -7,6 +7,8 @@ void java::JavaObject::WeakCallback(const WeakCallbackData <External, JavaObject
     ptr->_ref.Reset();
     ptr->env->DeleteGlobalRef(ptr->_obj);
     delete ptr;
+//	static int sum = 0;
+//	if(!(sum++ & 32767)) fprintf(stderr, "%d references deleted\n", sum);
 }
 
 void java::invoke(JNIEnv *env, jobject obj, JavaMethod *method, jvalue *values, jvalue &ret) {
