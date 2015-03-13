@@ -172,11 +172,11 @@ namespace java {
 
             jsize strlen = env->GetStringLength(name);
             const jchar *chars = env->GetStringCritical(name, NULL);
-			jchar nameChars[256];
+            jchar nameChars[256];
 
             for (int i = 0; i < strlen; i++) {
-				jchar ch = chars[i];
-				nameChars[i] = ch == '.' ? '/' : ch;
+                jchar ch = chars[i];
+                nameChars[i] = ch == '.' ? '/' : ch;
             }
             Local <String> clsName = String::NewFromTwoByte(isolate, nameChars, String::kNormalString, strlen);
             env->ReleaseStringChars(name, chars);
@@ -354,10 +354,12 @@ namespace java {
 
             AsyncInvokeTask *task = new AsyncInvokeTask(isolate, handle, method);
 
+            Local <Object> arguments = Local<Object>::Cast(args[2]);
+
             for (int count = method->args, i = 0; i < count; i++) {
                 jvalue &val = task->values[i];
                 char argType = method->argTypes[i];
-                parseValue(val, argType, args[i + 3], env);
+                parseValue(val, argType, arguments->Get(i + 1), env);
                 if (argType == '$' || argType == 'L') {
                     val.l = task->globalRefs[task->globalRefCount++] = env->NewGlobalRef(val.l);
                 }
