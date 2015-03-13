@@ -63,11 +63,7 @@ function invoker(isStatic, async) {
     } : function (signature) {
         var method = findMethod(isStatic ? this : this.getClass(), signature, isStatic);
 
-        var ret = bindings.invoke(this.handle, method, arguments);
-
-        if (ret !== null && typeof ret === 'object')
-            return new JavaObject(ret, null);
-        return ret;
+        return invokeFilter(bindings.invoke(this.handle, method, arguments));
     }
 }
 
