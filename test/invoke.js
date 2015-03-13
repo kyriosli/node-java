@@ -93,7 +93,7 @@ javaObject.invokeAsync("method(Ltest/Test;)Ltest/Test;", javaObject).then(functi
 }).then(function () {
     throw new Error('should not be here')
 }, function (err) {
-    assert(/^java.lang.RuntimeException : \d{13}: async$/.test(e.message));
+    assert(/^java.lang.RuntimeException : \d{13}: async$/.test(err.message));
     return vm.findClass('java/lang/System').invokeAsync('currentTimeMillis()J')
 }).then(function (timestamp) {
     assert(Math.abs(timestamp - Date.now()) < 10);
