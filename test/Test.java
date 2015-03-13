@@ -81,6 +81,10 @@ public class Test implements Runnable {
 	public String nullStringMethod() {
 		return null;
 	}
+
+	public void throwRuntimeException(String str) {
+		throw new RuntimeException(System.currentTimeMillis() + ": " + str);
+	}
 	
 	public static void main(String[] args) {
 		if(args.length == 1 && args[0].equals("willthrow")) {
