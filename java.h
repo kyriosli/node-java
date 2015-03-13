@@ -140,13 +140,23 @@ namespace java {
 
     namespace vm {
 
+        inline jobject unwrap(Local < Value > val) {
+            Local <Object> obj = val->ToObject();
+            Local <Value> handle = obj->Get(String::NewFromUtf8(Isolate::GetCurrent(), "handle"));
+            if (!handle->IsExternal()) {
+                return NULL;
+            }
+            return UNWRAP(handle, jobject);
+
+        }
+
         inline void parseValue(jvalue &val, const char type, Local <Value> arg, JNIEnv *env) {
             switch (type) {
                 case '$': // convert to jstring
-                    val.l = arg->IsNull() ? NULL : arg->IsExternal() ? UNWRAP(arg, jstring) : cast(env, arg);
+                    val.l = arg->IsNull() ? NULL : arg->IsObject() ? unwrap(arg) : cast(env, arg);
                     break;
                 case 'L':
-                    val.l = arg->IsNull() ? NULL : UNWRAP(arg, jobject);
+                    val.l = arg->IsNull() ? NULL : unwrap(arg);
                     break;
                 case 'Z':
                     val.z = arg->BooleanValue();
