@@ -46,12 +46,23 @@ assert.strictEqual(javaObject.invoke("method(Ltest/Test;)Ltest/Test;", null), nu
 
 var str = javaObject.invoke("method(Ljava/lang/String;I)Ljava/lang/Object;", "foobar", 3);
 assert.strictEqual(javaObject.invoke("method(Ljava/lang/String;C)Ljava/lang/String;", str, 'z'), 'barz');
+
+var _e;
+try {
+    javaObject.invoke('throwRuntimeException(Ljava/lang/String;)V', 'sync')
+
+} catch (e) {
+    assert(/^java.lang.RuntimeException : \d{13}: sync$/.test(e.message));
+    _e = true;
+}
+assert(_e);
+
 console.timeEnd('invoke');
 
 assert.strictEqual(javaObject.getClass(), cls);
 assert.strictEqual(dummy.getClass(), cls);
 
-var _e;
+_e = null;
 try {
     javaObject.invoke('notFound()V')
 
@@ -76,9 +87,14 @@ var _async_ok = false;
 // invoke async
 javaObject.invokeAsync("method(Ltest/Test;)Ltest/Test;", javaObject).then(function (dummy) {
     assert(dummy);
-    _async_ok = true;
+    return dummy.invokeAsync('throwRuntimeException(Ljava/lang/String;)V', 'async');
 }, function (err) {
-    console.error(err.message);
+    throw err
+}).then(function () {
+    throw new Error('should not be here')
+}, function (err) {
+    assert(/^java.lang.RuntimeException : \d{13}: async$/.test(e.message));
+    _async_ok = true;
 });
 
 process.on('exit', function () {
