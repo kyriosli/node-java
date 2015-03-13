@@ -47,12 +47,10 @@ function JavaClass(handle) {
 var rType = /\[*(?:L[^;]+;|[ZBCSIFDJ])/g;
 
 function invoker(isStatic, async) {
-
     return function (signature) {
         var method = findMethod(isStatic ? this : this.getClass(), signature, isStatic);
-        var arr = slice.call(arguments, 1);
-
-        var ret = (async ? bindings.invokeAsync : bindings.invoke)(this.handle, method, arr);
+//        var arr = slice.call(arguments, 1, arguments.length);
+        var ret = (async ? bindings.invokeAsync : bindings.invoke)(this.handle, method, arguments);
         if (ret !== null && typeof ret === 'object')
             return new JavaObject(ret, null);
         return ret;
@@ -70,10 +68,9 @@ function findMethod(cls, signature, isStatic) {
 JavaClass.prototype = {
     newInstance: function (signature) {
         
-        var method = findMethod(this, arguments.length ? '<init>(' + signature + ')V' : '<init>()V', false),
-            args = slice.call(arguments, 1);
+        var method = findMethod(this, arguments.length ? '<init>(' + signature + ')V' : '<init>()V', false);
 
-        var ref = bindings.newInstance(this.handle, method, args);
+        var ref = bindings.newInstance(this.handle, method, arguments);
 		return new JavaObject(ref, this);
     },
     invoke: invoker(true, false),

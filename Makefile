@@ -15,7 +15,8 @@ TARGET=java.node
 NODE_PREFIX=$(shell dirname $$(dirname $$(which node)))
 UNAME=linux
 
-COMPILER=$(CPP) -c -fPIC -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/$(UNAME) -I$(NODE_PREFIX)/include/node
+COMPILER=$(CPP) -c -fPIC -O3 -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/$(UNAME) -I$(NODE_PREFIX)/include/node
+
 LINKER=$(CPP) -shared
 
 all: test
