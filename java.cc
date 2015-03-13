@@ -370,7 +370,7 @@ namespace java {
             env->PopLocalFrame(NULL);
         }
 
-        // invokeAsync(obj, method, args)
+        // invoke(obj, method, args)
         void invoke(const FunctionCallbackInfo <Value> &args) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
@@ -385,12 +385,17 @@ namespace java {
             jvalue ret;
             java::invoke(env, handle->_obj, method, values, ret);
 
-            char retType = method->retType;
-            if (retType != 'V') {
-                if ((retType == '$' || retType == 'L') && !ret.l) {
-                    args.GetReturnValue().SetNull();
-                } else {
-                    RETURN(convert(retType, isolate, handle->jvm, env, ret));
+            // check exception
+            if (env->ExceptionCheck()) {
+                ThrowJavaException(env, isolate);
+            } else {
+                char retType = method->retType;
+                if (retType != 'V') {
+                    if ((retType == '$' || retType == 'L') && !ret.l) {
+                        args.GetReturnValue().SetNull();
+                    } else {
+                        RETURN(convert(retType, isolate, handle->jvm, env, ret));
+                    }
                 }
             }
 
