@@ -55,11 +55,15 @@ function JavaClass(name, handle) {
 var rType = /\[*(?:L[^;]+;|[ZBCSIFDJ])/g;
 
 function invoker(isStatic, async) {
-    return function (signature) {
+    return async ? function (signature) {
         var method = findMethod(isStatic ? this : this.getClass(), signature, isStatic);
 
-        var ret = (async ? bindings.invokeAsync : bindings.invoke)(this.handle, method, arguments);
+        return bindings.invokeAsync(this.handle, method, arguments);
         // passing `arguments' into c++ code is the most efficient way
+    } : function (signature) {
+        var method = findMethod(isStatic ? this : this.getClass(), signature, isStatic);
+
+        var ret = bindings.invoke(this.handle, method, arguments);
 
         if (ret !== null && typeof ret === 'object')
             return new JavaObject(ret, null);
