@@ -93,7 +93,7 @@ namespace java {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
 
-            JavaVM *jvm = GET_PTR(args, 0, JavaVM*);
+            JavaVM *jvm = GET_PTR(args, 0, JavaVM *);
 
             JNIEnv *env;
             SAFE_GET_ENV(jvm, env)
@@ -144,7 +144,7 @@ namespace java {
         void findClass(const FunctionCallbackInfo <Value> &args) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaVM *jvm = GET_PTR(args, 0, JavaVM*);
+            JavaVM *jvm = GET_PTR(args, 0, JavaVM *);
 
             JNIEnv *env;
             SAFE_GET_ENV(jvm, env)
@@ -199,7 +199,7 @@ namespace java {
 
             if (!methodID) {
                 char buf[128];
-				sprintf(buf, "method `%s' with signature `%s' not found.", name, ptr);
+                sprintf(buf, "method `%s' with signature `%s' not found.", name, ptr);
                 THROW(buf);
                 return;
             }
@@ -370,7 +370,7 @@ namespace java {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
 
-            JavaVM *jvm = GET_PTR(args, 0, JavaVM*);
+            JavaVM *jvm = GET_PTR(args, 0, JavaVM *);
             jint errno = jvm->DestroyJavaVM();
             CHECK_ERRNO(errno, "destroyVm failed");
         }
