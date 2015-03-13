@@ -8,18 +8,17 @@ var cls = vm.findClass("test/Test");
 assert.strictEqual(vm.findClass("test/Test"), cls);
 
 // newInstance
-var javaObject = cls.newInstance('ZBCSIFDJLjava/lang/String;', 
-	true, 127, 'A', 4095, 1048575, 12.34, Math.PI, Date.now(), 'Hello world');
+var javaObject = cls.newInstance('ZBCSIFDJLjava/lang/String;',
+    true, 127, 'A', 4095, 1048575, 12.34, Math.PI, Date.now(), 'Hello world');
 
-var dummy = javaObject.invoke("method(Ltest/Test;)Ltest/Test;", javaObject);
 console.log('invoke hashCode() 10w times');
 
 javaObject.invoke('hashCode()I'); // generate method cache
 
 console.time('invoke10w');
 
-for(var i=0; i<1e5; i++) {
-	javaObject.invoke('hashCode()I');
+for (var i = 0; i < 1e5; i++) {
+    javaObject.invoke('hashCode()I');
 }
 
 console.timeEnd('invoke10w');
@@ -54,14 +53,13 @@ assert.strictEqual(dummy.getClass(), cls);
 
 var _e;
 try {
-	javaObject.invoke('notFound()V')
-		
-} catch(e) {
-	assert.strictEqual(e.message, "method `notFound' with signature `()V' not found.");
-	_e = true;
+    javaObject.invoke('notFound()V')
+
+} catch (e) {
+    assert.strictEqual(e.message, "method `notFound' with signature `()V' not found.");
+    _e = true;
 }
 assert(_e);
-
 
 
 // new Date().toString()
@@ -73,3 +71,18 @@ console.log("System.currentTimeMillis(): " + System.invoke('currentTimeMillis()J
 console.log("Math.random(): " + vm.findClass("java/lang/Math").invoke('random()D'));
 
 console.timeEnd('static');
+
+var _async_ok = false;
+// invoke async
+javaObject.invokeAsync("method(Ltest/Test;)Ltest/Test;", javaObject).then(function (dummy) {
+    assert(dummy);
+    _async_ok = true;
+}, function (err) {
+    console.error(err.message);
+});
+
+process.on('exit', function () {
+    if (!_async_ok) {
+        console.log('async_ok not set');
+    }
+});
