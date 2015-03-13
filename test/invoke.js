@@ -7,6 +7,7 @@ var vm = java.createVm();
 var javaObject = vm.findClass("test/Test").newInstance('ZBCSIFDJLjava/lang/String;', 
 	true, 127, 'A', 4095, 1048575, 12.34, Math.PI, Date.now(), 'Hello world');
 
+var dummy = javaObject.invoke("method(Ltest/Test;)Ltest/Test;", javaObject);
 console.log('invoke hashCode() 10w times');
 
 javaObject.invoke('hashCode()I'); // generate method cache

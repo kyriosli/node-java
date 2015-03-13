@@ -24,9 +24,9 @@ $(TARGET): $(MODULES)
 	@echo 'linking $@'
 	$(LINKER) $^ -o $@
 
-%.o: %.cc
+%.o: %.cc java.h
 	@echo 'compiling $@'
-	$(COMPILER) -o $@ $^
+	$(COMPILER) -o $@ $<
 
 test:  $(TESTS)
 
