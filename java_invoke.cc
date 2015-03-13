@@ -2,7 +2,7 @@
 
 using namespace v8;
 
-void java::ExternalResource::WeakCallback(const WeakCallbackData <External, JavaObject> &data) {
+void java::JavaObject::WeakCallback(const WeakCallbackData <External, JavaObject> &data) {
     JavaObject *ptr = data.GetParameter();
     ptr->_ref.Reset();
     ptr->env->DeleteGlobalRef(ptr->_obj);

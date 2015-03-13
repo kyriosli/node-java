@@ -39,7 +39,7 @@ namespace java {
 
         inline JavaObject(JavaVM *jvm, JNIEnv *env, Isolate *isolate, jobject obj) :
                 _ref(isolate, External::New(isolate, this)),
-                ExternalResource(isolate), jvm(jvm), env(env), _obj(obj) {
+                jvm(jvm), env(env), _obj(obj) {
             _ref.SetWeak(this, WeakCallback);
             _ref.MarkIndependent();
         }
@@ -53,7 +53,7 @@ namespace java {
             if (!obj) return Local<Value>();
             JavaObject *ptr = new JavaObject(jvm, env, isolate, env->NewGlobalRef(obj));
             env->DeleteLocalRef(obj);
-            return Local<Value>::New(isolate, _ref);
+            return Local<External>::New(isolate, ptr->_ref);
         }
     };
 
