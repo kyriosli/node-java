@@ -3,8 +3,12 @@ var assert = require('assert');
 var java = require('../');
 
 var vm = java.createVm();
+var cls = vm.findClass("test/Test");
+
+assert.strictEqual(vm.findClass("test/Test"), cls);
+
 // newInstance
-var javaObject = vm.findClass("test/Test").newInstance('ZBCSIFDJLjava/lang/String;', 
+var javaObject = cls.newInstance('ZBCSIFDJLjava/lang/String;', 
 	true, 127, 'A', 4095, 1048575, 12.34, Math.PI, Date.now(), 'Hello world');
 
 var dummy = javaObject.invoke("method(Ltest/Test;)Ltest/Test;", javaObject);
@@ -45,6 +49,8 @@ var str = javaObject.invoke("method(Ljava/lang/String;I)Ljava/lang/Object;", "fo
 assert.strictEqual(javaObject.invoke("method(Ljava/lang/String;C)Ljava/lang/String;", str, 'z'), 'barz');
 console.timeEnd('invoke');
 
+assert.strictEqual(javaObject.getClass(), cls);
+assert.strictEqual(dummy.getClass(), cls);
 
 var _e;
 try {

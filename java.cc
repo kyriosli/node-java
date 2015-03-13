@@ -179,7 +179,7 @@ namespace java {
 				nameChars[i] = ch == '.' ? '/' : ch;
             }
             Local <String> clsName = String::NewFromTwoByte(isolate, nameChars, String::kNormalString, strlen);
-            env->ReleaseStringChars(name, chars);
+            env->ReleaseStringCritical(name, chars);
 
 
             Local <Object> classCache = Local<Object>::Cast(args[1]);

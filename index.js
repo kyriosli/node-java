@@ -120,7 +120,6 @@ JavaObject.prototype = {
     getClass: function () {
         var cls = this.cls;
         if (!cls) {
-            // TODO
             var arr = bindings.getClass(this.handle, instance.classCache),
                 className = arr[0],
                 handle = arr[1];
