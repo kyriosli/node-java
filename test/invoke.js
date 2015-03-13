@@ -98,6 +98,8 @@ javaObject.invokeAsync("method(Ltest/Test;)Ltest/Test;", javaObject).then(functi
 }).then(function (timestamp) {
     assert(Math.abs(timestamp - Date.now()) < 10);
     _async_ok = true;
+}, function (err) {
+    throw err;
 });
 
 process.on('exit', function () {
