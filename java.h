@@ -170,9 +170,9 @@ namespace java {
             int count = method->args;
             const char *types = method->argTypes;
 
-            Local <Array> $args = Local<Array>::Cast(args);
+            Local <Object> $args = Local<Object>::Cast(args);
             for (int i = 0; i < count; i++) {
-                parseValue(values[i], types[i], $args->Get(i), env);
+                parseValue(values[i], types[i], $args->Get(i + 1), env);
             }
         }
 
