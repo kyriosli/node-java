@@ -31,33 +31,17 @@ namespace java {
     */
     const jchar *getJavaException(JNIEnv *env, int *len);
 
-    class ExternalResource {
-
+    class JavaObject {
     private:
         Persistent <External> _ref;
 
-        static void WeakCallback(const WeakCallbackData <External, ExternalResource> &data);
-
-    protected:
-        inline ExternalResource(Isolate *isolate) :
-                _ref(isolate, External::New(isolate, this)) {
-            _ref.SetWeak(this, WeakCallback);
-            _ref.MarkIndependent();
-        }
-
-    public:
-        virtual ~ExternalResource() = 0;
-
-        inline Local <External> wrap(Isolate *isolate) {
-            return Local<External>::New(isolate, _ref);
-        }
-
-    };
-
-    class JavaObject : public ExternalResource {
+        static void WeakCallback(const WeakCallbackData <External, JavaObject> &data);
 
         inline JavaObject(JavaVM *jvm, JNIEnv *env, Isolate *isolate, jobject obj) :
+                _ref(isolate, External::New(isolate, this)),
                 ExternalResource(isolate), jvm(jvm), env(env), _obj(obj) {
+            _ref.SetWeak(this, WeakCallback);
+            _ref.MarkIndependent();
         }
 
     public:
@@ -67,13 +51,10 @@ namespace java {
 
         static inline Local <Value> wrap(JavaVM *jvm, JNIEnv *env, jobject obj, Isolate *isolate) {
             if (!obj) return Local<Value>();
-            ExternalResource *ptr = new JavaObject(jvm, env, isolate, env->NewGlobalRef(obj));
+            JavaObject *ptr = new JavaObject(jvm, env, isolate, env->NewGlobalRef(obj));
             env->DeleteLocalRef(obj);
-            return ptr->wrap(isolate);
+            return Local<Value>::New(isolate, _ref);
         }
-
-        ~JavaObject();
-
     };
 
     class JavaMethod {

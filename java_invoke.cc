@@ -2,15 +2,11 @@
 
 using namespace v8;
 
-void java::ExternalResource::WeakCallback(const WeakCallbackData <External, ExternalResource> &data) {
-    ExternalResource *ptr = data.GetParameter();
+void java::ExternalResource::WeakCallback(const WeakCallbackData <External, JavaObject> &data) {
+    JavaObject *ptr = data.GetParameter();
     ptr->_ref.Reset();
+    ptr->env->DeleteGlobalRef(ptr->_obj);
     delete ptr;
-}
-
-
-java::JavaObject::~JavaObject() {
-    env->DeleteGlobalRef(_obj);
 }
 
 void java::invoke(JNIEnv *env, jobject obj, JavaMethod *method, jvalue *values, jvalue &ret) {
