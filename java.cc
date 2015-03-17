@@ -157,7 +157,7 @@ namespace java {
             RETURN(JavaObject::wrap(jvm, env, cls, isolate));
         }
 
-        // getClass(obj, cache)
+        // getClass(obj, cache, self)
         void getClass(const FunctionCallbackInfo <Value> &args) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
@@ -166,7 +166,7 @@ namespace java {
             JNIEnv *env = handle->env;
 
             env->PushLocalFrame(16);
-            jclass cls = env->GetObjectClass(handle->_obj);
+            jclass cls = args[2]->BooleanValue() ? reinterpret_cast<jclass>(handle->_obj) : env->GetObjectClass(handle->_obj);
             static jmethodID GetClassName = env->GetMethodID(env->GetObjectClass(cls), "getName", "()Ljava/lang/String;");
             jstring name = (jstring) env->CallObjectMethod(cls, GetClassName);
 

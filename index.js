@@ -26,6 +26,12 @@ function JavaVM(vm) {
 var slice = Array.prototype.slice;
 
 JavaVM.prototype = {
+    getClass: function (ptr, self) {
+        var arr = bindings.getClass(ptr, this.classCache, self),
+            className = arr[0],
+            handle = arr[1];
+        return handle ? this.classCache[className] = new JavaClass(className, handle) : this.classCache[className];
+    },
     findClass: function (name) {
         var classCache = this.classCache;
         if (name in classCache) return classCache[name];
@@ -124,24 +130,12 @@ function JavaObject(handle, cls) {
 
 JavaObject.prototype = {
     getClass: function () {
-        var cls = this.cls;
-        if (!cls) {
-            var arr = bindings.getClass(this.handle, instance.classCache),
-                className = arr[0],
-                handle = arr[1];
-            if (!handle) {
-                return instance.classCache[className];
-            }
-
-            cls = this.cls = instance.classCache[className] = new JavaClass(className, handle);
-        }
-        //this.getClass = function() {return cls};
-        return cls;
+        return this.cls || (this.cls = instance.getClass(this.handle, false));
     },
     invoke: invoker(false, false),
     invokeAsync: invoker(false, true),
     asClass: function () {
-        return new JavaClass(this.handle);
+        return instance.getClass(this.handle, true);
     },
     asObjectArray: function () {
         return new JavaObjectArray(this.handle);
