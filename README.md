@@ -16,6 +16,27 @@ linux users:
     var vm = require('./node-java').createVm();
     vm.runMain("path/to/Main", ["string", "args"]);
     
+# performance
+
+tested on a single core linux server, with `iojs-1.1.0` and `jdk-1.8.0_25` 
+
+    $ uname -a
+    Linux ...... 3.16.0-4-amd64 #1 SMP Debian 3.16.7-ckt4-3 (2015-02-03) x86_64 GNU/Linux
+    $ cat /proc/cpuinfo
+    ...
+    model name      : Intel(R) Xeon(R) CPU E5-2630 0 @ 2.30GHz
+    ...
+    $ node -v
+    v1.1.0
+    $ java -version
+    java version "1.8.0_25"
+    Java(TM) SE Runtime Environment (build 1.8.0_25-b17)
+    Java HotSpot(TM) 64-Bit Server VM (build 25.25-b02, mixed mode)
+
+  - 1,000,000 function calls (`Object.hashValue()`) per second
+  - 4,000,000 static field access(`Math.PI`) per second
+
+
 # apis
 
 ## module node-java
@@ -74,9 +95,9 @@ Throws: class not found error
 
 ### function invokeAsync(string signature, mixed ...args)
 
-### function get(string name, string type)
-
   - Returns: a promise
+
+### function get(string name, string type)
 
 ### function asClass()
 

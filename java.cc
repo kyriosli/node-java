@@ -322,6 +322,89 @@ namespace java {
 
         }
 
+        // set(handle, field, value)
+        void set(const FunctionCallbackInfo <Value> &args) {
+            Isolate *isolate = Isolate::GetCurrent();
+            HandleScope handle_scope(isolate);
+            JavaObject *handle = GET_PTR(args, 0, JavaObject*);
+
+            JNIEnv *env = handle->env;
+            jobject obj = handle->_obj; // a global reference
+
+            long long field = args[1]->NumberValue();
+            bool isStatic = field >> 48;
+            char type = field >> 40;
+            jfieldID fieldID = reinterpret_cast<jfieldID>(field & 0xffffffffff);
+
+            jvalue val;
+            parseValue(val, type, args[2], env);
+
+            if (isStatic) {
+                jclass cls = (jclass) obj;
+                switch (type) {
+                    case 'Z':
+                        env->SetStaticBooleanField(cls, fieldID, val.z);
+                        break;
+                    case 'B':
+                        env->SetStaticByteField(cls, fieldID, val.b);
+                        break;
+                    case 'C':
+                        env->SetStaticCharField(cls, fieldID, val.c);
+                        break;
+                    case 'S':
+                        env->SetStaticShortField(cls, fieldID, val.s);
+                        break;
+                    case 'I':
+                        env->SetStaticIntField(cls, fieldID, val.i);
+                        break;
+                    case 'F':
+                        env->SetStaticFloatField(cls, fieldID, val.f);
+                        break;
+                    case 'J':
+                        env->SetStaticLongField(cls, fieldID, val.j);
+                        break;
+                    case 'D':
+                        env->SetStaticDoubleField(cls, fieldID, val.d);
+                        break;
+                    case '$':
+                    case 'L':
+                        env->SetStaticObjectField(cls, fieldID, val.l);
+                        break;
+                }
+            } else {
+                switch (type) {
+                    case 'Z':
+                        env->SetBooleanField(obj, fieldID, val.z);
+                        break;
+                    case 'B':
+                        env->SetByteField(obj, fieldID, val.b);
+                        break;
+                    case 'C':
+                        env->SetCharField(obj, fieldID, val.c);
+                        break;
+                    case 'S':
+                        env->SetShortField(obj, fieldID, val.s);
+                        break;
+                    case 'I':
+                        env->SetIntField(obj, fieldID, val.i);
+                        break;
+                    case 'F':
+                        env->SetFloatField(obj, fieldID, val.f);
+                        break;
+                    case 'J':
+                        env->SetLongField(obj, fieldID, val.j);
+                        break;
+                    case 'D':
+                        env->SetDoubleField(obj, fieldID, val.d);
+                        break;
+                    case '$':
+                    case 'L':
+                        env->SetObjectField(obj, fieldID, val.l);
+                        break;
+                }
+            }
+        }
+
 
         // findMethod(cls, signature, isStatic)
         void findMethod(const FunctionCallbackInfo <Value> &args) {
@@ -572,6 +655,7 @@ namespace java {
         REGISTER(findMethod);
         REGISTER(findField);
         REGISTER(get);
+        REGISTER(set);
         REGISTER(newInstance);
         REGISTER(invoke);
         REGISTER(invokeAsync);
