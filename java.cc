@@ -209,13 +209,13 @@ namespace java {
             String::Utf8Value Name(args[1]);
             String::Utf8Value Type(args[2]);
 
-            const char *pname = *Name, ptype = *Type;
+            const char *pname = *Name, *ptype = *Type;
 
             bool isStatic = args[3]->BooleanValue();
 
             jfieldID fieldID = isStatic ?
                     env->GetStaticFieldID(cls, pname, ptype) :
-                    env->GetMethodID(cls, pname, ptype);
+                    env->GetFieldID(cls, pname, ptype);
 
             if (!fieldID) {
                 char buf[128];
@@ -229,11 +229,11 @@ namespace java {
 
             if (type == '[') {
                 type = 'L';
-            } else if (type == 'L' && !strncmp(ptr, "Ljava/lang/String;", 18)) {
+            } else if (type == 'L' && !strncmp(ptype, "Ljava/lang/String;", 18)) {
                 type = '$';
             }
 
-            long long result = fieldID | static_cast<long>(type) << 40 | static_cast<long>(isStatic) << 48;
+            long long result = reinterpret_cast<long long>(fieldID) | static_cast<long long>(type) << 40 | static_cast<long long>(isStatic) << 48;
 
             RETURN(Number::New(isolate, result));
         }
@@ -250,7 +250,7 @@ namespace java {
             long long field = args[1]->NumberValue();
             bool isStatic = field >> 48;
             char type = field >> 40;
-            jfieldID fieldID = field & 0xffffffffff;
+            jfieldID fieldID = reinterpret_cast<jfieldID>(field & 0xffffffffff);
 
             jvalue val;
             if (isStatic) {
@@ -318,7 +318,7 @@ namespace java {
                 }
             }
 
-            RETURN(convert(type, isolate, jvm, env, val));
+            RETURN(convert(type, isolate, handle->jvm, env, val));
 
         }
 
