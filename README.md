@@ -30,13 +30,13 @@ Java vm options can be specified by arguments, such as `"-Xms256m"`
 
 ## class JavaVM
 
-### function JavaVM.runMain(string className, optional string[] args)
+### function runMain(string className, optional string[] args)
 
 Runs `public static void main(String[] args)` with specified class and arguments.
  
 See [ClassNames](ClassNames) for more details
 
-### function JavaVM.runMainAsync(string className, optional string[] args)
+### function runMainAsync(string className, optional string[] args)
 
 Asynchronous version of `runMain` which returns a `Promise` and schedules main task in a thread pool
 
@@ -44,7 +44,7 @@ Warning: DO NOT run more than 4 thread blocking async processes at the same time
 uv_thread_pool to run those tasks, that shares the same thread pool limit with global module `fs`, so async file
 operations won't be available till blocking state ends.
  
-### function JavaVM.findClass(string className)
+### function findClass(string className)
 
   - Returns: a instance of class `JavaClasss`
 
@@ -52,29 +52,29 @@ Throws: class not found error
 
 ## class JavaClass
  
-### function JavaClass.newInstance(optional string argSignatures, mixed ...args)
+### function newInstance(optional string argSignatures, mixed ...args)
 
   - Returns: a instance of class `JavaObject`
 
-### function JavaClass.invoke(string signature, mixed ...args)
+### function invoke(string signature, mixed ...args)
 
-### function JavaClass.invokeAsync(string signature, mixed ...args)
+### function invokeAsync(string signature, mixed ...args)
 
   - Returns: a promise
 
 ## class JavaObject
 
-### function JavaObject.getClass()
+### function getClass()
 
   - Returns: a instance of class `JavaClass`
 
-### function JavaObject.invoke(string signature, mixed ...args)
+### function invoke(string signature, mixed ...args)
 
-### function JavaObject.invokeAsync(string signature, mixed ...args)
+### function invokeAsync(string signature, mixed ...args)
 
   - Returns: a promise
 
-### function JavaObject.asClass()
+### function asClass()
 
   - Returns: a instance of class `JavaClass`
  
