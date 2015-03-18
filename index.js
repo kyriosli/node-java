@@ -11,11 +11,9 @@ var instance = null;
 exports.createVm = function () {
     if (instance)
         return instance;
-    // TODO: options
-    var options = []; //["-verbose:jni"];
     // Because JavaVMOption accepts zero-terminated cstring as its input, we must
     // make sure that the input strings does not contain \0.
-    return instance = new JavaVM(bindings.createVm(options.length, options.join('\0')));
+    return instance = new JavaVM(bindings.createVm(arguments.length, Array.prototype.join.call(arguments, '\0')));
 };
 
 function JavaVM(vm) {
