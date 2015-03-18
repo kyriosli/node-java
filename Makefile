@@ -19,7 +19,7 @@ COMPILER=$(CPP) -c -fPIC -O3 -I$(JAVA_HOME)/include -I$(JAVA_HOME)/include/$(UNA
 
 LINKER=$(CPP) -shared
 
-all: test
+all: $(TARGET)
 
 $(TARGET): $(MODULES)
 	@echo 'linking $@'
