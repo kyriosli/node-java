@@ -34,7 +34,7 @@ Java vm options can be specified by arguments, such as `"-Xms256m"`
 
 Runs `public static void main(String[] args)` with specified class and arguments.
  
-See [ClassNames](ClassNames) for more details
+See [ClassNames](#classnames) for more details
 
 ### function runMainAsync(string className, optional string[] args)
 
