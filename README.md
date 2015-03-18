@@ -125,3 +125,12 @@ Method signature is defined as `name(argument types)return type`, where argument
 Type signature is defined as `[type signature | Z | B | S | C | I | F | D | J | LClassName;`.
 
 See [JNI API Reference](http://docs.oracle.com/javase/8/docs/technotes/guides/jni/spec/types.html#type_signatures) for more details.
+
+
+# TODO list:
+
+  - array support
+    - create primitive/object arrays
+    - access primitive/object arrays
+  - port to windows/osx
+  - method proxy
