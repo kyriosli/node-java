@@ -13,6 +13,15 @@ var JavaMath = vm.findClass('java/lang/Math');
 
 assert.strictEqual(JavaMath.get('PI', 'D'), Math.PI);
 
+console.time('doubleField');
+
+for(var i=0; i<1e6; i++) {
+	JavaMath.get('PI', 'D');
+}
+
+console.timeEnd('doubleField');
+
+
 var Test = vm.findClass('test/Test');
 
 var javaObject = Test.newInstance('ZBCSIFDJLjava/lang/String;',
