@@ -53,7 +53,8 @@ function JavaClass(name, handle) {
     this.name = name;
     this.handle = handle;
 
-    this.methodCache = {};
+    this.methodCache = [{}, {}];
+    this.fieldCache = [{}, {}];
 }
 
 var rType = /\[*(?:L[^;]+;|[ZBCSIFDJ])/g;
@@ -78,16 +79,24 @@ function invokeFilter(ret) {
 }
 
 function findMethod(cls, signature, isStatic) {
-    var methodCache = cls.methodCache;
+    var methodCache = cls.methodCache[+isStatic];
     if (signature in methodCache)
         return methodCache[signature];
 
     return methodCache[signature] = bindings.findMethod(cls.handle, signature, isStatic)
 }
 
+function findField(cls, name, type, isStatic) {
+    var fieldCache = cls.fieldCache[+isStatic],
+        signature = name + ':' + type;
+    if (signature in fieldCache)
+        return fieldCache[signature];
+
+    return fieldCache[signature] = bindings.findField(cls.handle, name, type, isStatic);
+}
+
 JavaClass.prototype = {
     newInstance: function (signature) {
-
         var method = findMethod(this, arguments.length ? '<init>(' + signature + ')V' : '<init>()V', false);
 
         var ref = bindings.newInstance(this.handle, method, arguments);
@@ -97,6 +106,14 @@ JavaClass.prototype = {
     invokeAsync: invoker(true, true),
     asObject: function () {
         return new JavaObject(this.handle, null);
+    },
+    get: function (name, type) {
+        var field = findField(this, name, type, true);
+        return invokeFilter(bindings.get(this.handle, field));
+    },
+    set: function (name, type, value) {
+        var field = findField(this, name, type, true);
+        bindings.set(this.handle, field, value);
     }
 };
 

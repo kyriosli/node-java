@@ -197,6 +197,131 @@ namespace java {
             env->PopLocalFrame(NULL);
         }
 
+        // findField(cls, name, type, isStatic)
+        void findField(const FunctionCallbackInfo <Value> &args) {
+            Isolate *isolate = Isolate::GetCurrent();
+            HandleScope handle_scope(isolate);
+            JavaObject *handle = GET_PTR(args, 0, JavaObject*);
+
+            JNIEnv *env = handle->env;
+            jclass cls = (jclass) handle->_obj; // a global reference
+
+            String::Utf8Value Name(args[1]);
+            String::Utf8Value Type(args[2]);
+
+            const char *pname = *Name, ptype = *Type;
+
+            bool isStatic = args[3]->BooleanValue();
+
+            jfieldID fieldID = isStatic ?
+                    env->GetStaticFieldID(cls, pname, ptype) :
+                    env->GetMethodID(cls, pname, ptype);
+
+            if (!fieldID) {
+                char buf[128];
+                sprintf(buf, "field `%s' with type `%s' not found.", pname, ptype);
+                THROW(buf);
+                env->ExceptionClear();
+                return;
+            }
+
+            char type = ptype[0];
+
+            if (type == '[') {
+                type = 'L';
+            } else if (type == 'L' && !strncmp(ptr, "Ljava/lang/String;", 18)) {
+                type = '$';
+            }
+
+            long long result = fieldID | static_cast<long>(type) << 40 | static_cast<long>(isStatic) << 48;
+
+            RETURN(Number::New(isolate, result));
+        }
+
+        // get(handle, field)
+        void get(const FunctionCallbackInfo <Value> &args) {
+            Isolate *isolate = Isolate::GetCurrent();
+            HandleScope handle_scope(isolate);
+            JavaObject *handle = GET_PTR(args, 0, JavaObject*);
+
+            JNIEnv *env = handle->env;
+            jobject obj = handle->_obj; // a global reference
+
+            long long field = args[1]->NumberValue();
+            bool isStatic = field >> 48;
+            char type = field >> 40;
+            jfieldID fieldID = field & 0xffffffffff;
+
+            jvalue val;
+            if (isStatic) {
+                jclass cls = (jclass) obj;
+                switch (type) {
+                    case 'Z':
+                        val.z = env->GetStaticBooleanField(cls, fieldID);
+                        break;
+                    case 'B':
+                        val.b = env->GetStaticByteField(cls, fieldID);
+                        break;
+                    case 'C':
+                        val.c = env->GetStaticCharField(cls, fieldID);
+                        break;
+                    case 'S':
+                        val.s = env->GetStaticShortField(cls, fieldID);
+                        break;
+                    case 'I':
+                        val.i = env->GetStaticIntField(cls, fieldID);
+                        break;
+                    case 'F':
+                        val.f = env->GetStaticFloatField(cls, fieldID);
+                        break;
+                    case 'J':
+                        val.j = env->GetStaticLongField(cls, fieldID);
+                        break;
+                    case 'D':
+                        val.d = env->GetStaticDoubleField(cls, fieldID);
+                        break;
+                    case '$':
+                    case 'L':
+                        val.l = env->GetStaticObjectField(cls, fieldID);
+                        break;
+                }
+            } else {
+                switch (type) {
+                    case 'Z':
+                        val.z = env->GetBooleanField(obj, fieldID);
+                        break;
+                    case 'B':
+                        val.b = env->GetByteField(obj, fieldID);
+                        break;
+                    case 'C':
+                        val.c = env->GetCharField(obj, fieldID);
+                        break;
+                    case 'S':
+                        val.s = env->GetShortField(obj, fieldID);
+                        break;
+                    case 'I':
+                        val.i = env->GetIntField(obj, fieldID);
+                        break;
+                    case 'F':
+                        val.f = env->GetFloatField(obj, fieldID);
+                        break;
+                    case 'J':
+                        val.j = env->GetLongField(obj, fieldID);
+                        break;
+                    case 'D':
+                        val.d = env->GetDoubleField(obj, fieldID);
+                        break;
+                    case '$':
+                    case 'L':
+                        val.l = env->GetObjectField(obj, fieldID);
+                        break;
+                }
+            }
+
+            RETURN(convert(type, isolate, jvm, env, val));
+
+        }
+
 
         // findMethod(cls, signature, isStatic)
         void findMethod(const FunctionCallbackInfo <Value> &args) {
@@ -445,6 +570,8 @@ namespace java {
         REGISTER(runMain);
         REGISTER(findClass);
         REGISTER(findMethod);
+        REGISTER(findField);
+        REGISTER(get);
         REGISTER(newInstance);
         REGISTER(invoke);
         REGISTER(invokeAsync);
