@@ -85,6 +85,8 @@ Throws: class not found error
 
 ### function get(string name, string type)
 
+### function set(string name, string type, mixed value)
+
 ## class JavaObject
 
 ### function getClass()
@@ -98,6 +100,8 @@ Throws: class not found error
   - Returns: a promise
 
 ### function get(string name, string type)
+
+### function set(string name, string type, mixed value)
 
 ### function asClass()
 
