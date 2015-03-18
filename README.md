@@ -62,6 +62,8 @@ Throws: class not found error
 
   - Returns: a promise
 
+### function get(string name, string type)
+
 ## class JavaObject
 
 ### function getClass()
@@ -71,6 +73,8 @@ Throws: class not found error
 ### function invoke(string signature, mixed ...args)
 
 ### function invokeAsync(string signature, mixed ...args)
+
+### function get(string name, string type)
 
   - Returns: a promise
 

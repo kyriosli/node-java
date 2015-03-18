@@ -1,10 +1,22 @@
-var assert = require('assert');
+	var assert = require('assert');
 var java = require('../');
 
 var vm = java.createVm();
 
-var System = java.findClass('java/lang/System');
+var JavaSystem = vm.findClass('java/lang/System');
 
-var out = System.get('out', 'Ljava/io/PrintStream;');
+var out = JavaSystem.get('out', 'Ljava/io/PrintStream;');
 
 out.invoke('println(Ljava/lang/String;)V', 'Hello world');
+
+var JavaMath = vm.findClass('java/lang/Math');
+
+assert.strictEqual(JavaMath.get('PI', 'D'), Math.PI);
+
+var Test = vm.findClass('test/Test');
+
+var javaObject = Test.newInstance('ZBCSIFDJLjava/lang/String;',
+    true, 127, 'A', 4095, 1048575, 12.34, Math.PI, Date.now(), 'Hello world');
+
+assert.strictEqual(javaObject.get('doubleField', 'D'), Math.PI);
+assert.strictEqual(javaObject.get('stringField', 'Ljava/lang/String;'), 'Hello world');

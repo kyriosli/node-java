@@ -149,6 +149,14 @@ JavaObject.prototype = {
     },
     invoke: invoker(false, false),
     invokeAsync: invoker(false, true),
+    get: function (name, type) {
+        var field = findField(this.getClass(), name, type, false);
+        return invokeFilter(bindings.get(this.handle, field));
+    },
+    set: function (name, type, value) {
+        var field = findField(this.getClass(), name, type, false);
+        bindings.set(this.handle, field, value);
+    },
     asClass: function () {
         return instance.getClass(this.handle, true);
     },

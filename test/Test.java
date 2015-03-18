@@ -5,8 +5,15 @@ public class Test implements Runnable {
 
 	public Test() {}
 
+	public double doubleField;
+
+	public String stringField;
+
 	public Test(boolean z, byte b, char c, short s, int i, float f, double d, long j, String $) {
 		System.out.println("new Test(" + z + ", " + b + ", '" + c + "', " + s + ", " + i + ", " + f + ", " + d +", " + j + ", \"" + $ + "\")");
+		doubleField = d;
+		stringField = $;
+
 	}
 
 	public void method(String str) {
