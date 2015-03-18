@@ -1,4 +1,4 @@
-	var assert = require('assert');
+var assert = require('assert');
 var java = require('../');
 
 var vm = java.createVm();
@@ -29,3 +29,7 @@ var javaObject = Test.newInstance('ZBCSIFDJLjava/lang/String;',
 
 assert.strictEqual(javaObject.get('doubleField', 'D'), Math.PI);
 assert.strictEqual(javaObject.get('stringField', 'Ljava/lang/String;'), 'Hello world');
+
+javaObject.set('stringField', 'Ljava/lang/String;', 'Hello world2');
+assert.strictEqual(javaObject.get('stringField', 'Ljava/lang/String;'), 'Hello world2');
+
