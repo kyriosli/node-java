@@ -10,7 +10,7 @@ namespace java {
     namespace async {
 
         class Runner {
-
+        public:
             static void call(uv_work_t *work) {
                 // printf("isolate is: %x", v8::Isolate::GetCurrent());
                 Task *task = (Task *) work->data;
