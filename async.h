@@ -10,7 +10,7 @@ namespace java {
 
         class Task {
         private:
-            bool finalized = false;
+            bool finalized;
             JNIEnv *env;
         protected:
             Persistent <Promise::Resolver> resolver;
@@ -24,7 +24,7 @@ namespace java {
             JavaVM *vm;
 
             inline Task(JavaVM *vm, JNIEnv *env, Isolate *isolate) :
-                    vm(vm), env(env), resolver(isolate, Promise::Resolver::New(isolate)) {
+                    finalized(false), vm(vm), env(env), resolver(isolate, Promise::Resolver::New(isolate)) {
 
             }
 
