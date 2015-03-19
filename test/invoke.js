@@ -11,17 +11,21 @@ assert.strictEqual(vm.findClass("test/Test"), cls);
 var javaObject = cls.newInstance('ZBCSIFDJLjava/lang/String;',
     true, 127, 'A', 4095, 1048575, 12.34, Math.PI, Date.now(), 'Hello world');
 
-console.log('invoke hashCode() 10w times');
+(function () {
 
-javaObject.invoke('hashCode()I'); // generate method cache
+    console.log('invoke hashCode() 10w times');
 
-console.time('invoke10w');
+    javaObject.invoke('hashCode()I'); // generate method cache
 
-for (var i = 0; i < 1e5; i++) {
-    javaObject.invoke('hashCode()I');
-}
+    console.time('invoke10w');
 
-console.timeEnd('invoke10w');
+    for (var i = 0; i < 1e5; i++) {
+        javaObject.invoke('hashCode()I');
+    }
+
+    console.timeEnd('invoke10w');
+
+})();
 
 console.time('invoke');
 

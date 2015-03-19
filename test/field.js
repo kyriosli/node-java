@@ -13,14 +13,15 @@ var JavaMath = vm.findClass('java/lang/Math');
 
 assert.strictEqual(JavaMath.get('PI', 'D'), Math.PI);
 
-console.time('doubleField');
+(function () {
+    console.time('doubleField');
 
-for (var i = 0; i < 1e6; i++) {
-    JavaMath.get('PI', 'D');
-}
+    for (var i = 0; i < 1e6; i++) {
+        JavaMath.get('PI', 'D');
+    }
 
-console.timeEnd('doubleField');
-
+    console.timeEnd('doubleField');
+})();
 
 var Test = vm.findClass('test/Test');
 
@@ -35,10 +36,11 @@ assert.strictEqual(javaObject.get('stringField', 'Ljava/lang/String;'), 'Hello w
 
 
 var _e;
-
 try {
     javaObject.get('not_exist', 'I');
 } catch (e) {
     assert(/^field `not_exist' with type `I' not found.$/.test(e.message));
     _e = true;
 }
+assert(_e);
+
