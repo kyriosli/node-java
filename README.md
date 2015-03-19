@@ -16,6 +16,16 @@ linux users:
     var vm = require('./node-java').createVm();
     vm.runMain("path/to/Main", ["string", "args"]);
     
+## environment variables
+
+  - JAVA_HOME
+    default entry to build native module, and find jvm shared library at runtime.
+  - JRE_HOME
+    fallback entry to find jvm shared library.
+  - NODE_JAVA_VERBOSE
+    set this env to display more message and returns java stack trace when error occurs
+    
+    
 # performance
 
 tested on a single core linux server, with `iojs-1.1.0` and `jdk-1.8.0_25` 

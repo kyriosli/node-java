@@ -7,7 +7,9 @@ MODULES=\
 
 TESTS=\
 	test/index\
-	test/invoke
+	test/invoke\
+	test/field\
+	test/cast
 
 CPP=g++
 TARGET=java.node

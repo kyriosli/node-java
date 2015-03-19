@@ -6,6 +6,7 @@
 
 
 namespace java {
+    bool verbose;
     using namespace v8;
 
     namespace vm {
@@ -628,6 +629,7 @@ namespace java {
             CHECK_ERRNO(errno, "destroyVm failed");
         }
 
+        // link(path, verbose)
         void link(const FunctionCallbackInfo <Value> &args) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
@@ -638,6 +640,7 @@ namespace java {
                 return;
             }
 
+            verbose = args[1]->BooleanValue();
         }
     }
 

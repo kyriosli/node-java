@@ -5,7 +5,7 @@
 #include<v8.h>
 
 namespace java {
-    const void getJavaException(JNIEnv * env, jchar * &buf, int & len);
+    void getJavaException(JNIEnv * env, jchar * &buf, int & len);
 
     namespace async {
         using namespace v8;
