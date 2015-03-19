@@ -42,7 +42,7 @@ namespace java {
                 msg_len = msg_len_;
                 msg = new jchar[msg_len_];
                 for (int i = 0; i < msg_len_; i++)
-                    msg[i] = msg_[i];
+                    ((jchar *) msg)[i] = msg_[i];
             }
 
 

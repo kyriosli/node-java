@@ -100,16 +100,13 @@ namespace java {
 
     Local <Value> convert(const char type, Isolate *isolate, JavaVM *jvm, JNIEnv *env, jvalue val);
 
-    inline void ThrowException(const jchar *msg, int msgLen, Isolate *isolate) {
+    inline void ThrowJavaException(JNIEnv * env, Isolate * isolate) {
+        int msgLen;
+        const jchar *msg = getJavaException(env, msgLen);
         Local <String> jsmsg = String::NewFromTwoByte(isolate, msg, String::kNormalString, msgLen);
         isolate->ThrowException(Exception::Error(jsmsg));
         delete[] msg;
-    }
 
-    inline void ThrowJavaException(JNIEnv * env, Isolate * isolate) {
-        int len;
-        const jchar *msg = getJavaException(env, &len);
-        ThrowException(msg, len, isolate);
     }
 
     namespace vm {
