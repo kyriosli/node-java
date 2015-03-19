@@ -76,7 +76,7 @@ namespace java {
 
                 if (env->ExceptionCheck()) {
                     int len;
-                    const jchar *msg = getJavaException(env, &len);
+                    const jchar *msg = getJavaException(env, len);
                     reject(msg, len);
                 } else {
                     resolve('V', jvalue());
@@ -128,7 +128,7 @@ namespace java {
             if (args[3]->BooleanValue()) { // async == true
                 AsyncMainTask *task = new AsyncMainTask(jvm, env, cls, main, javaArgs, isolate);
                 task->enqueue();
-                RETURN(task->promise(isolate));
+                RETURN(task->promise());
             } else {
                 jvalue jargs;
                 jargs.l = javaArgs;
@@ -544,7 +544,7 @@ namespace java {
 
                 if (env->ExceptionCheck()) {
                     int len;
-                    const jchar *msg = getJavaException(env, &len);
+                    const jchar *msg = getJavaException(env, len);
                     reject(msg, len);
                 } else {
                     resolve(method->retType, ret);
@@ -587,7 +587,7 @@ namespace java {
             }
 
             task->enqueue();
-            RETURN(task->promise(isolate));
+            RETURN(task->promise());
             env->PopLocalFrame(NULL);
         }
 

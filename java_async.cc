@@ -8,7 +8,6 @@
 using namespace v8;
 
 void java::async::Task::onFinish() {
-    Isolate *isolate = Isolate::GetCurrent();
     HandleScope handle_scope(isolate);
 
     Local <Promise::Resolver> res = Local<Promise::Resolver>::New(isolate, resolver);
@@ -37,9 +36,7 @@ void java::async::Task::execute() {
     if (errno) {
         char buf[64];
         int count = sprintf(buf, "`AttachCurrentThread' failed with errno %d", errno);
-        jchar *msg = new jchar[count];
-        printw(msg, buf, count);
-        reject(msg, count);
+        reject(buf, count);
         return;
     }
     run(env); // this is virtual
