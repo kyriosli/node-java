@@ -9,6 +9,9 @@ namespace java {
         using namespace v8;
 
         class Task {
+        private:
+            bool finalized = false;
+            JNIEnv *env;
         protected:
             Persistent <Promise::Resolver> resolver;
             union {
@@ -20,14 +23,17 @@ namespace java {
         public:
             JavaVM *vm;
 
-            inline Task(JavaVM *vm, Isolate *isolate) :
-                    vm(vm), resolver(isolate, Promise::Resolver::New(isolate)) {
+            inline Task(JavaVM *vm, JNIEnv *env, Isolate *isolate) :
+                    vm(vm), env(env), resolver(isolate, Promise::Resolver::New(isolate)) {
 
             }
 
             void execute();
 
             virtual void run(JNIEnv *env) = 0;
+
+            virtual void finalize(JNIEnv *env) {
+            }
 
             void enqueue();
 

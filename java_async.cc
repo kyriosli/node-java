@@ -20,22 +20,14 @@ void java::async::Task::onFinish() {
         res->Reject(Exception::Error(jsmsg));
     } else if (resolved_type == 'V') {
         res->Resolve(Undefined(isolate));
-    } else if (resolved_type == '$' || resolved_type == 'L') {
-        if (!value.l) {
-            res->Resolve(Null(isolate));
-        } else {
-            JNIEnv *env;
-            jint errno = GET_ENV(vm, env);
-            if (errno) {
-                char errMsg[64];
-                int len = sprintf(errMsg, "`GetEnv' failed with error code: %d", errno);
-                res->Reject(Exception::Error(String::NewFromUtf8(isolate, errMsg, String::kNormalString, len)));
-            } else {
-                res->Resolve(convert(resolved_type, isolate, vm, env, value));
-            }
-        }
+    } else if ((resolved_type == '$' || resolved_type == 'L') && !value.l) {
+        res->Resolve(Null(isolate));
     } else {
-        res->Resolve(convert(resolved_type, isolate, vm, NULL, value));
+        res->Resolve(convert(resolved_type, isolate, vm, env, value));
+    }
+
+    if (!finalized) {
+        finalize(env);
     }
 }
 
@@ -44,12 +36,14 @@ void java::async::Task::execute() {
     jint errno = vm->AttachCurrentThread((void **) &env, NULL);
     if (errno) {
         char buf[64];
-        int count = sprintf(buf, "`AttachCurrentThread' failed with errno %d, This may cause memory leak!!!", errno);
+        int count = sprintf(buf, "`AttachCurrentThread' failed with errno %d", errno);
         jchar *msg = new jchar[count];
         printw(msg, buf, count);
         reject(msg, count);
         return;
     }
     run(env); // this is virtual
+    finalize(env);
+    finalized = true;
     vm->DetachCurrentThread();
 }
