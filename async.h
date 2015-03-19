@@ -8,40 +8,27 @@ namespace java {
     namespace async {
         using namespace v8;
 
+        class Runner;
+
         class Task {
         private:
-            bool finalized;
-            JNIEnv *env;
+            bool finalized; // whether finalized is called
+            JNIEnv *env; // JNI env in main thread. in running thread, obtain env with `JavaVM::AttachCurrentThread`
+            void execute(); // called by thread pool
+            void onFinish();
+
         protected:
-            Persistent <Promise::Resolver> resolver;
+            Persistent <Promise::Resolver> resolver; // resolver associated with the promise returned
             union {
-                jvalue value;
-                const jchar *msg;
+                jvalue value; // the value resolved
+                const jchar *msg; // the error message rejected
             };
-            char resolved_type;
-            int msg_len;
-        public:
-            JavaVM *vm;
-
-            inline Task(JavaVM *vm, JNIEnv *env, Isolate *isolate) :
-                    finalized(false), vm(vm), env(env), resolver(isolate, Promise::Resolver::New(isolate)) {
-
-            }
-
-            void execute();
-
-            virtual void run(JNIEnv *env) = 0;
-
+            char resolved_type; // type of value resolved, or `'e'` if rejected
+            int msg_len; // length of message rejected
             virtual void finalize(JNIEnv *env) {
             }
 
-            void enqueue();
-
-            void onFinish();
-
-            inline Local <Promise> promise(Isolate *isolate) {
-                return Local<Promise::Resolver>::New(isolate, resolver)->GetPromise();
-            }
+            virtual void run(JNIEnv *env) = 0; // called by execute
 
             inline void reject(const jchar *msg_, int msg_len_) {
                 resolved_type = 'e';
@@ -54,6 +41,22 @@ namespace java {
                 value = val;
             }
 
+        public:
+            JavaVM *vm;
+
+            inline Task(JavaVM *vm, JNIEnv *env, Isolate *isolate) :
+                    finalized(false), vm(vm), env(env), resolver(isolate, Promise::Resolver::New(isolate)) {
+            }
+
+
+            void enqueue();
+
+            inline Local <Promise> promise(Isolate *isolate) {
+                return Local<Promise::Resolver>::New(isolate, resolver)->GetPromise();
+            }
+
+
+            friend class Runner;
 
         };
 
