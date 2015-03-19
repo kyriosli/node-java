@@ -1,7 +1,7 @@
 #include "java.h"
 #include<string.h>
 
-const jchar *java::getJavaException(JNIEnv *env, int &len) {
+const void java::getJavaException(JNIEnv * env, jchar * &buf, int & len) {
     env->PushLocalFrame(0);
     jthrowable e = env->ExceptionOccurred();
     env->ExceptionClear();
@@ -15,17 +15,15 @@ const jchar *java::getJavaException(JNIEnv *env, int &len) {
     jsize nameLen = env->GetStringLength(clsName),
             msgLen = env->GetStringLength(message);
 
-    jchar *buf = new jchar[len = nameLen + msgLen + 3];
-    const jchar *chars = env->GetStringCritical(clsName, NULL);
-    memcpy(buf, chars, nameLen << 1);
+    len = nameLen + msgLen + 3;
+    if (!buf) {
+        buf = new jchar[len];
+    }
+
+    env->GetStringRegion(clsName, 0, nameLen, buf);
     buf[nameLen] = buf[nameLen + 2] = ' ';
     buf[nameLen + 1] = ':';
-    env->ReleaseStringCritical(clsName, chars);
-
-    chars = env->GetStringCritical(message, NULL);
-    memcpy(buf + nameLen + 3, chars, msgLen << 1);
-    env->ReleaseStringCritical(message, chars);
+    env->GetStringRegion(message, 0, msgLen, buf + nameLen + 3);
 
     env->PopLocalFrame(NULL);
-    return buf;
 }

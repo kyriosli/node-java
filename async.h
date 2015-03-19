@@ -5,6 +5,8 @@
 #include<v8.h>
 
 namespace java {
+    const void getJavaException(JNIEnv * env, jchar * &buf, int & len);
+
     namespace async {
         using namespace v8;
 
@@ -22,7 +24,7 @@ namespace java {
             Persistent <Promise::Resolver> resolver; // resolver associated with the promise returned
             union {
                 jvalue value; // the value resolved
-                const jchar *msg; // the error message rejected
+                jchar *msg; // the error message rejected
             };
             char resolved_type; // type of value resolved, or `'e'` if rejected
             int msg_len; // length of message rejected
@@ -31,10 +33,10 @@ namespace java {
 
             virtual void run(JNIEnv *env) = 0; // called by execute
 
-            inline void reject(const jchar *msg_, int msg_len_) {
+            inline void reject(JNIEnv *env) {
                 resolved_type = 'e';
-                msg = msg_;
-                msg_len = msg_len_;
+                msg = NULL;
+                getJavaException(env, msg, msg_len);
             }
 
             inline void reject(const char *msg_, int msg_len_) {
@@ -42,7 +44,7 @@ namespace java {
                 msg_len = msg_len_;
                 msg = new jchar[msg_len_];
                 for (int i = 0; i < msg_len_; i++)
-                    ((jchar *) msg)[i] = msg_[i];
+                    msg[i] = msg_[i];
             }
 
 

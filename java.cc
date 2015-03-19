@@ -75,9 +75,7 @@ namespace java {
                 // check exception
 
                 if (env->ExceptionCheck()) {
-                    int len;
-                    const jchar *msg = getJavaException(env, len);
-                    reject(msg, len);
+                    reject(env);
                 } else {
                     resolve('V', jvalue());
                 }
@@ -543,9 +541,7 @@ namespace java {
 
 
                 if (env->ExceptionCheck()) {
-                    int len;
-                    const jchar *msg = getJavaException(env, len);
-                    reject(msg, len);
+                    reject(env);
                 } else {
                     resolve(method->retType, ret);
                 }
