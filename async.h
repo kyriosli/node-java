@@ -13,6 +13,7 @@ namespace java {
         class Task {
         private:
             bool finalized; // whether finalized is called
+            Isolate *isolate; // isolate can only be used in main thread.
             JNIEnv *env; // JNI env in main thread. in running thread, obtain env with `JavaVM::AttachCurrentThread`
             void execute(); // called by thread pool
             void onFinish();
@@ -36,6 +37,15 @@ namespace java {
                 msg_len = msg_len_;
             }
 
+            inline void reject(const char *msg_, int msg_len_) {
+                resolved_type = 'e';
+                msg_len = msg_len_;
+                msg = new jchar[msg_len_];
+                for (int i = 0; i < msg_len_; i++)
+                    msg[i] = msg_[i];
+            }
+
+
             inline void resolve(const char type, jvalue val) {
                 resolved_type = type;
                 value = val;
@@ -45,13 +55,14 @@ namespace java {
             JavaVM *vm;
 
             inline Task(JavaVM *vm, JNIEnv *env, Isolate *isolate) :
-                    finalized(false), vm(vm), env(env), resolver(isolate, Promise::Resolver::New(isolate)) {
+                    finalized(false), vm(vm), env(env), isolate(isolate),
+                    resolver(isolate, Promise::Resolver::New(isolate)) {
             }
 
 
             void enqueue();
 
-            inline Local <Promise> promise(Isolate *isolate) {
+            inline Local <Promise> promise() {
                 return Local<Promise::Resolver>::New(isolate, resolver)->GetPromise();
             }
 
@@ -59,9 +70,6 @@ namespace java {
             friend class Runner;
 
         };
-
-        Task &newTask(JavaVM *, Isolate *);
-
     }
 }
 

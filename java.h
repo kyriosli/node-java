@@ -29,7 +29,7 @@ namespace java {
     /*
     * reads and clears java exception info
     */
-    const jchar *getJavaException(JNIEnv *env, int *len);
+    const jchar *getJavaException(JNIEnv *env, int &len);
 
     class JavaObject {
     private:
@@ -99,13 +99,6 @@ namespace java {
     void invoke(JNIEnv *env, jobject obj, JavaMethod *method, jvalue *values, jvalue &ret);
 
     Local <Value> convert(const char type, Isolate *isolate, JavaVM *jvm, JNIEnv *env, jvalue val);
-
-    const jchar *getJavaException(JNIEnv *env, int *len);
-
-    inline void printw(jchar *out, const char *in, int len) {
-        for (int i = 0; i < len; i++)
-            out[i] = in[i];
-    }
 
     inline void ThrowException(const jchar *msg, int msgLen, Isolate *isolate) {
         Local <String> jsmsg = String::NewFromTwoByte(isolate, msg, String::kNormalString, msgLen);

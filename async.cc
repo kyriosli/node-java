@@ -10,19 +10,20 @@ namespace java {
     namespace async {
 
         class Runner {
-        public:
-            static void call(uv_work_t *work) {
-                // printf("isolate is: %x", v8::Isolate::GetCurrent());
+        private:
+            static void call(uv_work_t *work) { // called in thread pool
                 Task *task = (Task *) work->data;
                 task->execute();
             }
 
-            static void after_call(uv_work_t *work, int status) {
+            static void after_call(uv_work_t *work, int status) { // called in main message loop
                 Task *task = (Task *) work->data;
                 task->onFinish();
                 delete task;
                 delete work;
             }
+
+            friend class Task;
         };
 
     }
