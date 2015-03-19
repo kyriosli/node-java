@@ -15,8 +15,8 @@ assert.strictEqual(JavaMath.get('PI', 'D'), Math.PI);
 
 console.time('doubleField');
 
-for(var i=0; i<1e6; i++) {
-	JavaMath.get('PI', 'D');
+for (var i = 0; i < 1e6; i++) {
+    JavaMath.get('PI', 'D');
 }
 
 console.timeEnd('doubleField');
@@ -33,3 +33,12 @@ assert.strictEqual(javaObject.get('stringField', 'Ljava/lang/String;'), 'Hello w
 javaObject.set('stringField', 'Ljava/lang/String;', 'Hello world2');
 assert.strictEqual(javaObject.get('stringField', 'Ljava/lang/String;'), 'Hello world2');
 
+
+var _e;
+
+try {
+    javaObject.get('not_exist', 'I');
+} catch (e) {
+    assert(/^field `not_exist' with type `I' not found.$/.test(e.message));
+    _e = true;
+}

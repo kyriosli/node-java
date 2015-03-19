@@ -12,7 +12,7 @@ try {
 	err = e;
 }
 assert(err);
-assert.strictEqual(err.message, "java.lang.NoClassDefFoundError : test/Test1");
+assert.strictEqual(err.message, "java.lang.NoClassDefFoundError: test/Test1");
 
 vm.runMain("test/Test", [1, 2, 3]);
 console.log("vm.runMain() has returned");
@@ -32,7 +32,7 @@ setTimeout(function(){
 	}).then(function()	{
 		throw new Error("should not be called")
 	}, function(err) {
-		assert(/^java.lang.RuntimeException : \d{13}: willthrow$/.test(err.message));
+		assert(/^java.lang.RuntimeException: \d{13}: willthrow$/.test(err.message));
 		vm.destroy();
 		console.log("vm destroyed");
 		vm_destroyed = true;
