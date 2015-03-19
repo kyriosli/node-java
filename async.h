@@ -5,7 +5,7 @@
 #include<v8.h>
 
 namespace java {
-    void getJavaException(JNIEnv * env, jchar * &buf, int & len);
+    void getJavaException(JNIEnv * env, jchar * &buf, size_t & len);
 
     namespace async {
         using namespace v8;
@@ -27,7 +27,7 @@ namespace java {
                 jchar *msg; // the error message rejected
             };
             char resolved_type; // type of value resolved, or `'e'` if rejected
-            int msg_len; // length of message rejected
+            size_t msg_len; // length of message rejected
             virtual void finalize(JNIEnv *env) {
             }
 
@@ -35,11 +35,11 @@ namespace java {
 
             inline void reject(JNIEnv *env) {
                 resolved_type = 'e';
-                msg = NULL;
+                msg_len = 0;
                 getJavaException(env, msg, msg_len);
             }
 
-            inline void reject(const char *msg_, int msg_len_) {
+            inline void reject(const char *msg_, size_t msg_len_) {
                 resolved_type = 'e';
                 msg_len = msg_len_;
                 msg = new jchar[msg_len_];

@@ -28,10 +28,13 @@ namespace java {
 
     using namespace v8;
 
-    /*
+    /**
     * reads and clears java exception info
+    *
+    * @param buf reference of the buffer to be returned, maybe non-null if pre-allocated
+    * @param len reference of the bufLen to be returned, should be zero if buf is not pre-allocated, or size of the buf
     */
-    void getJavaException(JNIEnv * env, jchar * &buf, int & len);
+    void getJavaException(JNIEnv * env, jchar * &buf, size_t & len);
 
     class JavaObject {
     private:
@@ -103,13 +106,17 @@ namespace java {
     Local <Value> convert(const char type, Isolate *isolate, JavaVM *jvm, JNIEnv *env, jvalue val);
 
     inline void ThrowJavaException(JNIEnv * env, Isolate * isolate) {
-        jchar buf[1024];
+        const size_t BUF_SIZE = 128;
+        jchar buf[BUF_SIZE]; // pre-allocated buffer, to be filled by `getJavaException'
         jchar *msg = buf;
-        int msgLen;
+        size_t msgLen = BUF_SIZE;
         getJavaException(env, msg, msgLen);
 
         Local <String> jsmsg = String::NewFromTwoByte(isolate, msg, String::kNormalString, msgLen);
         isolate->ThrowException(Exception::Error(jsmsg));
+        if (msgLen > BUF_SIZE) {
+            delete[] msg;
+        }
     }
 
     namespace vm {
