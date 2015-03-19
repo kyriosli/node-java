@@ -24,12 +24,14 @@
 
 namespace java {
 
+    extern bool verbose;
+
     using namespace v8;
 
     /*
     * reads and clears java exception info
     */
-    const void getJavaException(JNIEnv * env, jchar * &buf, int & len);
+    void getJavaException(JNIEnv * env, jchar * &buf, int & len);
 
     class JavaObject {
     private:
@@ -101,7 +103,8 @@ namespace java {
     Local <Value> convert(const char type, Isolate *isolate, JavaVM *jvm, JNIEnv *env, jvalue val);
 
     inline void ThrowJavaException(JNIEnv * env, Isolate * isolate) {
-        jchar msg[1024];
+        jchar buf[1024];
+        jchar *msg = buf;
         int msgLen;
         getJavaException(env, msg, msgLen);
 

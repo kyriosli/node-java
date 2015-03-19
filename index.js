@@ -169,6 +169,8 @@ function JavaObjectArray(handle) {
 }
 
 function initBinding() {
+    var verbose = !!process.env.NODE_JAVA_VERBOSE;
+
     var java_home = process.env.JAVA_HOME,
         jre_home = process.env.JRE_HOME;
     if (java_home === undefined && jre_home === undefined) {
@@ -178,24 +180,27 @@ function initBinding() {
 
     var platform = process.platform, arch = process.arch;
 
-    var paths = [];
-
     switch (true) {
         case java_home && platform === "linux" && arch === "x64" && test(java_home + "/jre/lib/amd64/server/libjvm.so"):
         case jre_home && platform === "linux" && arch === "x64" && test(jre_home + "/lib/amd64/server/libjvm.so"):
             break;
 
         default:
-            throw new Error("jvm shared library not found. paths tested are: \n  " + paths.join('\n  '));
+            throw new Error("jvm shared library not found.");
     }
 
 
     function test(path) {
+        if (verbose) {
+            console.log('[INIT] testing jvm lib: ' + path);
+        }
         if (fs.existsSync(path)) {
-            bindings.link(path);
+            bindings.link(path, verbose);
             return true;
         }
-        paths.push(path);
+        if (verbose) {
+            console.log('[INIT] file not found: ' + path);
+        }
     }
 
 }
