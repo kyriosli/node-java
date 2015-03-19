@@ -63,7 +63,7 @@ namespace java {
             jobjectArray args;
         public:
             inline AsyncMainTask(JavaVM *vm, JNIEnv *env, jclass cls, jmethodID main, jobjectArray args, Isolate *isolate)
-                    : Task(vm, isolate), cls(static_cast<jclass>(env->NewGlobalRef(cls))),
+                    : Task(vm, env, isolate), cls(static_cast<jclass>(env->NewGlobalRef(cls))),
                       main(main), args(static_cast<jobjectArray>(env->NewGlobalRef(args))) {
             }
 
@@ -81,7 +81,9 @@ namespace java {
                 } else {
                     resolve('V', jvalue());
                 }
+            }
 
+            void finalize(JNIEnv *env) {
                 env->DeleteGlobalRef(cls);
                 env->DeleteGlobalRef(args);
             }
@@ -526,7 +528,7 @@ namespace java {
             int globalRefCount;
 
             AsyncInvokeTask(Isolate *isolate, JavaObject *handle, JavaMethod *method) :
-                    Task(handle->jvm, isolate),
+                    Task(handle->jvm, handle->env, isolate),
                     obj(handle->env->NewGlobalRef(handle->_obj)),
                     method(method),
                     globalRefCount(1) {
@@ -551,7 +553,9 @@ namespace java {
 
                 env->PopLocalFrame(NULL);
 
+            }
 
+            void finalize(JNIEnv *env) {
                 for (int i = 0; i < globalRefCount; i++)
                     env->DeleteGlobalRef(globalRefs[i]);
             }
