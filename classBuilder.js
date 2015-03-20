@@ -22,7 +22,9 @@ exports.constants = {
     ACC_STRICT: 0x800,
     ACC_SYNTHETIC: 0x1000,
     ACC_ANNOTATION: 0x2000,
-    ACC_ENUM: 0x4000
+    ACC_ENUM: 0x4000,
+    REF_FIELD: 9,
+    REF_METHOD: 10
 };
 
 function Builder(name, parentName, interfaceNames, accessFlags, attributes) {
@@ -121,6 +123,7 @@ Builder.prototype = {
         });
     },
     defineMethod: function (name, signature, modifier, attributes) {
+        //console.log('define method ' + name + signature);
         this.methods.push({
             modifier: modifier,
             nameIdx: this.getUtf8(name),
@@ -136,16 +139,23 @@ Builder.prototype = {
             attributes: attributes
         })
     },
-    createCode: function (maxStack, maxLocals, instructions, attributes) {
+    createCode: function (maxStack, maxLocals, instructions) {
+        var codeLen = instructions.length,
+            arr = new Uint8Array(12 + codeLen),
+            view = new DataView(arr.buffer);
+        view.setUint16(0, maxStack);
+        view.setUint16(2, maxLocals);
+        view.setUint32(4, codeLen);
+        arr.set(instructions, 8);
+        view.setUint32(8 + codeLen, 0);
+
         return {
-            type: 'Code',
-            size: 0, // TODO
-            maxStack: maxStack,
-            maxLocals: maxLocals,
-            instructions: instructions,
-            attributes: attributes
+            nameIdx: this.getUtf8('Code'),
+            size: 18 + instructions.length, // TODO
+            data: arr
         }
     }, build: function () {
+        var self = this;
         var bufLen = 10; // magic code, versions, const_pool_count
         this.constants.forEach(addSize);
         bufLen += 8 + this.interfaceIdxes.length * 2;
@@ -228,7 +238,6 @@ Builder.prototype = {
         this.methods.forEach(handleMember);
 
         handleAttributes(this.attributes);
-
         return buffer;
 
         function addAttributeSize(obj) {
@@ -259,7 +268,12 @@ Builder.prototype = {
         }
 
         function handleAttribute(attribute) {
-            //TODO
+            //console.log('set name', attribute.nameIdx);
+            view.setUint16(idx, attribute.nameIdx);
+            //console.log('set size', idx + 2, bufLen);
+            view.setUint32(idx + 2, attribute.size - 6);
+            bytes.set(attribute.data, idx + 6);
+            idx += attribute.size;
         }
     }
 };
