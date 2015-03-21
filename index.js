@@ -21,7 +21,7 @@ function JavaVM(vm) {
     this.classCache = {};
 }
 
-var slice = Array.prototype.slice;
+var nextImplId = 0;
 
 JavaVM.prototype = {
     getClass: function (ptr, self) {
@@ -43,6 +43,19 @@ JavaVM.prototype = {
     runMainAsync: function (cls, args) {
         return bindings.runMain(this.vm, cls, args, true);
     },
+    implement: function (interfaces, methods) {
+        var name = 'kyrios/Impl' + (nextImplId++).toString(36),
+            impl = require('./implement').build(name, interfaces, Object.keys(methods));
+
+        require('fs').writeFileSync(name + '.class', new Buffer(new Uint8Array(impl.buffer)));
+
+        var handle = bindings.defineClass(this.vm, name, impl.buffer, impl.natives),
+            ret = instance.classCache[name] = new JavaClass(name, handle);
+        ret.newInstance = nativeNewInstance;
+        ret.methods = methods;
+
+        return ret;
+    },
     destroy: function () {
         bindings.dispose(this.vm);
         this.vm = null;
@@ -57,7 +70,33 @@ function JavaClass(name, handle) {
     this.fieldCache = [{}, {}];
 }
 
-var rType = /\[*(?:L[^;]+;|[ZBCSIFDJ])/g;
+JavaClass.prototype = {
+    newInstance: function (signature) {
+        var method = findMethod(this, arguments.length ? '<init>(' + signature + ')V' : '<init>()V', false);
+
+        var ref = bindings.newInstance(this.handle, method, arguments);
+        return new JavaObject(ref, this);
+    },
+    invoke: invoker(true, false),
+    invokeAsync: invoker(true, true),
+    asObject: function () {
+        return new JavaObject(this.handle, null);
+    },
+    get: function (name, type) {
+        var field = findField(this, name, type, true);
+        return invokeFilter(bindings.get(this.handle, field));
+    },
+    set: function (name, type, value) {
+        var field = findField(this, name, type, true);
+        bindings.set(this.handle, field, value);
+    }
+};
+
+function nativeNewInstance() {
+    var method = findMethod(this, '<init>(J)V', false);
+    var ref = bindings.nativeNewInstance(this.handle, method);
+    return new JavaObject(ref, this);
+}
 
 function invoker(isStatic, async) {
     return async ? function (signature) {
@@ -94,29 +133,6 @@ function findField(cls, name, type, isStatic) {
 
     return fieldCache[signature] = bindings.findField(cls.handle, name, type, isStatic);
 }
-
-JavaClass.prototype = {
-    newInstance: function (signature) {
-        var method = findMethod(this, arguments.length ? '<init>(' + signature + ')V' : '<init>()V', false);
-
-        var ref = bindings.newInstance(this.handle, method, arguments);
-        return new JavaObject(ref, this);
-    },
-    invoke: invoker(true, false),
-    invokeAsync: invoker(true, true),
-    asObject: function () {
-        return new JavaObject(this.handle, null);
-    },
-    get: function (name, type) {
-        var field = findField(this, name, type, true);
-        return invokeFilter(bindings.get(this.handle, field));
-    },
-    set: function (name, type, value) {
-        var field = findField(this, name, type, true);
-        bindings.set(this.handle, field, value);
-    }
-};
-
 
 function parseArgs(args, types) {
     var ret = [];
@@ -204,3 +220,4 @@ function initBinding() {
     }
 
 }
+

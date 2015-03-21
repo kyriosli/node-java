@@ -51,7 +51,9 @@ tested on a single core linux server, with `iojs-1.1.0` and `jdk-1.8.0_25`
 
 ## module node-java
 
-### function createVm (string ...options)
+### createVm
+
+    function createVm (string ...options)
 
 Creates a jvm instance, or returns an instance already created.
 
@@ -61,13 +63,17 @@ Java vm options can be specified by arguments, such as `"-Xms256m"`
 
 ## class JavaVM
 
-### function runMain(string className, optional string[] args)
+### runMain
+
+    function runMain(string className, optional string[] args)
 
 Runs `public static void main(String[] args)` with specified class and arguments.
  
 See [ClassNames](#classnames) for more details
 
-### function runMainAsync(string className, optional string[] args)
+### runMainAsync
+
+    function runMainAsync(string className, optional string[] args)
 
 Asynchronous version of `runMain` which returns a `Promise` and schedules main task in a thread pool
 
@@ -75,7 +81,9 @@ Warning: DO NOT run more than 4 thread blocking async processes at the same time
 uv_thread_pool to run those tasks, that shares the same thread pool limit with global module `fs`, so async file
 operations won't be available till blocking state ends.
  
-### function findClass(string className)
+### findClass
+
+    function findClass(string className)
 
   - Returns: a instance of class `JavaClasss`
 
@@ -83,37 +91,59 @@ Throws: class not found error
 
 ## class JavaClass
  
-### function newInstance(optional string argSignatures, mixed ...args)
+### newInstance
+
+    function newInstance(optional string argSignatures, mixed ...args)
 
   - Returns: a instance of class `JavaObject`
 
-### function invoke(string signature, mixed ...args)
+### invoke
 
-### function invokeAsync(string signature, mixed ...args)
+    function invoke(string signature, mixed ...args)
+
+### invokeAsync
+
+    function invokeAsync(string signature, mixed ...args)
 
   - Returns: a promise
 
-### function get(string name, string type)
+### get
 
-### function set(string name, string type, mixed value)
+    function get(string name, string type)
+
+### set
+
+    function set(string name, string type, mixed value)
 
 ## class JavaObject
 
-### function getClass()
+### getClass
+
+    function getClass()
 
   - Returns: a instance of class `JavaClass`
 
-### function invoke(string signature, mixed ...args)
+### invoke
 
-### function invokeAsync(string signature, mixed ...args)
+    function invoke(string signature, mixed ...args)
+
+### invokeAsync
+
+    function invokeAsync(string signature, mixed ...args)
 
   - Returns: a promise
 
-### function get(string name, string type)
+### get
 
-### function set(string name, string type, mixed value)
+    function get(string name, string type)
 
-### function asClass()
+### set
+
+    function set(string name, string type, mixed value)
+
+### asClass
+
+    function asClass()
 
   - Returns: a instance of class `JavaClass`
  

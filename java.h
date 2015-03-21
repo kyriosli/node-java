@@ -54,12 +54,29 @@ namespace java {
         JNIEnv *env;
         jobject _obj;
 
+        inline JavaObject() {
+        }
+
         static inline Local <Value> wrap(JavaVM *jvm, JNIEnv *env, jobject obj, Isolate *isolate) {
             if (!obj) return Local<Value>();
             JavaObject *ptr = new JavaObject(jvm, env, isolate, env->NewGlobalRef(obj));
             env->DeleteLocalRef(obj);
             return Local<External>::New(isolate, ptr->_ref);
         }
+
+
+        inline Persistent <External> &resetNative(JavaVM *jvm_, JNIEnv *env_, jobject obj, Isolate *isolate) {
+            _ref.Reset(isolate, External::New(isolate, this));
+            _ref.MarkIndependent();
+            jvm = jvm_;
+            env = env_;
+            _obj = env->NewGlobalRef(obj);
+            env->DeleteLocalRef(obj);
+            return _ref;
+
+        }
+
+
     };
 
     class JavaMethod {

@@ -2,12 +2,14 @@
 
 #include "java.h"
 #include "async.h"
+#include "java_native.h"
 #include<string.h>
 
 
 namespace java {
     bool verbose;
     using namespace v8;
+
 
     namespace vm {
         void createVm(const FunctionCallbackInfo <Value> &args) { // int argc, char*
@@ -518,6 +520,30 @@ namespace java {
             env->PopLocalFrame(NULL);
         }
 
+        // nativeNewInstance(cls, method)
+        void nativeNewInstance(const FunctionCallbackInfo <Value> &args) {
+            Isolate *isolate = Isolate::GetCurrent();
+            HandleScope handle_scope(isolate);
+            JavaObject *handle = GET_PTR(args, 0, JavaObject*);
+            JavaMethod *method = GET_PTR(args, 1, JavaMethod*);
+
+            JNIEnv *env = handle->env;
+            jclass cls = (jclass) handle->_obj; // a global reference
+
+            env->PushLocalFrame(128);
+
+
+            JavaObject *ptr = new JavaObject();
+            jobject obj = env->NewObject(cls, method->methodID, reinterpret_cast<jlong>(ptr));
+            if (!obj) { // failed
+                delete ptr;
+                ThrowJavaException(env, isolate);
+            } else {
+                RETURN(ptr->resetNative(handle->jvm, env, obj, isolate));
+            }
+            env->PopLocalFrame(NULL);
+        }
+
         class AsyncInvokeTask : public async::Task {
         public:
             jobject obj;
@@ -642,6 +668,35 @@ namespace java {
 
             verbose = args[1]->BooleanValue();
         }
+
+        // defineClass(vm, name, buffer, natives)
+        void defineClass(const FunctionCallbackInfo <Value> &args) {
+            Isolate *isolate = Isolate::GetCurrent();
+            HandleScope handle_scope(isolate);
+
+            JavaVM *jvm = GET_PTR(args, 0, JavaVM *);
+
+            JNIEnv *env;
+            SAFE_GET_ENV(jvm, env)
+
+            String::Utf8Value Name(args[1]);
+
+            Local <ArrayBuffer> buffer = Local<ArrayBuffer>::Cast(args[2]);
+            Local <Array> natives = Local<Array>::Cast(args[3]);
+
+            ArrayBuffer::Contents contents = buffer->Externalize();
+
+            const jbyte *ptr = static_cast<const jbyte *>(contents.Data());
+            jclass cls = env->DefineClass(*Name, NULL, ptr, contents.ByteLength());
+            delete[] ptr;
+            if (!cls) {
+                ThrowJavaException(env, isolate);
+                return;
+            }
+
+            RETURN(JavaObject::wrap(jvm, env, cls, isolate));
+
+        }
     }
 
 
@@ -660,9 +715,11 @@ namespace java {
         REGISTER(get);
         REGISTER(set);
         REGISTER(newInstance);
+        REGISTER(nativeNewInstance);
         REGISTER(invoke);
         REGISTER(invokeAsync);
         REGISTER(getClass);
+        REGISTER(defineClass);
 #undef REGISTER
     }
 }
