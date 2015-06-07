@@ -1,4 +1,4 @@
-var java = require('../'), vm = java.createVm();
+var java = require('../../index'), vm = java.createVm();
 var count = 0;
 function press() {
 

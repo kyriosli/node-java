@@ -6,10 +6,8 @@ build steps require JDK and Node.js installed, and `JAVA_HOME` environment must 
 
 linux users:
  
-    git clone git@github.com:kyriosli/node-java.git
-    cd node-java
-    make
-
+    npm install -g node-gyp # if you do not have node-gyp installed
+    npm install git@github.com:kyriosli/node-java.git
 
 # usage
 
@@ -43,8 +41,10 @@ tested on a single core linux server, with `iojs-1.1.0` and `jdk-1.8.0_25`
     Java(TM) SE Runtime Environment (build 1.8.0_25-b17)
     Java HotSpot(TM) 64-Bit Server VM (build 25.25-b02, mixed mode)
 
-  - 1,000,000 function calls (`Object.hashValue()`) per second
+  - 800,000 function calls with no parameters (`Object.hashValue()`) per second
+  - 560,000 function calls with 8 parameters per second
   - 4,000,000 static field access(`Math.PI`) per second
+  - 230,000 function calls from java to implemented methods with js
 
 
 # apis
@@ -88,6 +88,39 @@ operations won't be available till blocking state ends.
   - Returns: a instance of class `JavaClasss`
 
 Throws: class not found error
+
+### implement
+
+    function implement(optional string superClass, optional string[] interfaces, object methods)
+
+Implement a java class with javascript methods. `interfaces` is list of java interfaces that the generated java class will
+implement, and `methods` is map of methods that will be implemented.
+
+For example:
+
+    var vm = require('./node-java').createVm();
+    var Runnable = vm.implement(['java/lang/Runnable'], {
+        'run()V' : function() {
+            console.log('Thread started');
+        }
+    });
+
+    var thread = vm.findClass('java/lang/Thread').newInstance('Ljava/lang/Runnable;', Runnable.newInstance());
+    thread.invoke('start()V');
+
+  1. Note that, the implemented method calls made from inside or outside the Node.JS's main message loop is quite different.
+If a method call is made inside the main loop, we can execute javascript codes immediately. However, if a method is called
+from another thread(just like the example above), the thread will wait for the main loop to be idle, and when js code
+executes completed, the thread is waked up.
+
+  2. If a javascript error throws without caught, a `java/lang/RuntimeException` is thrown to the java environment.
+
+  3. the default value for `superClass` is `java/lang/Object`, if you specify another class name, make sure it has a default
+constructor.
+
+
+  - Returns: a `JavaClass` instance
+
 
 ## class JavaClass
  
@@ -173,4 +206,3 @@ See [JNI API Reference](http://docs.oracle.com/javase/8/docs/technotes/guides/jn
     - create primitive/object arrays
     - access primitive/object arrays
   - port to windows/osx
-  - method proxy

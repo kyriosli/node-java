@@ -3,16 +3,15 @@
 
 #include<jni.h>
 #include<node.h>
+#include<nan.h>
 
 
 #define JNI_VERSION    JNI_VERSION_1_6
-#define THROW(msg)    isolate->ThrowException(Exception::Error(String::NewFromUtf8(isolate, msg)))
 #define GET_PTR(args, idx, type)    static_cast<type>(External::Cast(*args[idx])->Value())
 #define CHECK_ERRNO(errno, msg)    if(errno) {\
         char errMsg[128];\
         sprintf(errMsg, msg " with error code: %d", errno);\
-        THROW(errMsg);\
-        return;\
+        return NanThrowError(errMsg);\
     }
 
 #define GET_ENV(jvm, env) jvm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION)
@@ -26,7 +25,41 @@ namespace java {
 
     extern bool verbose;
 
+    typedef struct GlobalRefs {
+        int count;
+        jobject *globals;
+        jobject _globals[16];
+
+        inline GlobalRefs() : count(0), globals(_globals) {
+        };
+
+
+        inline void push(jobject obj) {
+            if (count == 16) {
+                globals = new jobject[256];
+                // fprintf(stderr, "dynamic-allocating array %x\n", globals);
+                for (int i = 0; i < 16; i++) globals[i] = _globals[i];
+            }
+            globals[count++] = obj;
+        }
+
+        template<typename S>
+        inline void push(JNIEnv *env, S &obj) {
+            push(obj = (S) env->NewGlobalRef(obj));
+        }
+
+        inline void free(JNIEnv *env) {
+            for (int i = 0; i < count; i++) env->DeleteGlobalRef(globals[i]);
+            if (count > 16) {
+                // fprintf(stderr, "freeing dynamic-allocated array %x\n", globals);
+                delete[] globals;
+            }
+        }
+    } global_refs;
+
     using namespace v8;
+    extern Persistent <Object> bindings;
+
 
     /**
     * reads and clears java exception info
@@ -48,7 +81,6 @@ namespace java {
             _ref.SetWeak(this, WeakCallback);
             _ref.MarkIndependent();
         }
-
     public:
         JavaVM *jvm;
         JNIEnv *env;
@@ -61,12 +93,12 @@ namespace java {
             if (!obj) return Local<Value>();
             JavaObject *ptr = new JavaObject(jvm, env, isolate, env->NewGlobalRef(obj));
             env->DeleteLocalRef(obj);
-            return Local<External>::New(isolate, ptr->_ref);
+            return NanNew<External>(ptr->_ref);
         }
 
 
         inline Persistent <External> &resetNative(JavaVM *jvm_, JNIEnv *env_, jobject obj, Isolate *isolate) {
-            _ref.Reset(isolate, External::New(isolate, this));
+            NanAssignPersistent(_ref, NanNew<External>(this));
             _ref.MarkIndependent();
             jvm = jvm_;
             env = env_;
@@ -83,8 +115,8 @@ namespace java {
     private:
         char _argTypes[16];
     public:
-        jmethodID methodID;
         bool isStatic;
+        jmethodID methodID;
         const char *argTypes;
         int args;
         char retType;
@@ -94,7 +126,7 @@ namespace java {
         }
 
         inline Local <External> wrap(Isolate *isolate) {
-            return External::New(isolate, this);
+            return NanNew<External>(this);
         }
     };
 
@@ -105,7 +137,7 @@ namespace java {
 
         jsize strlen = env->GetStringLength(javastr);
         const jchar *chars = env->GetStringCritical(javastr, NULL);
-        Local <String> ret = String::NewFromTwoByte(isolate, chars, String::kNormalString, strlen);
+        Local <String> ret = NanNew<String>(chars, strlen);
         env->ReleaseStringCritical(javastr, chars);
         return ret;
     }
@@ -128,9 +160,7 @@ namespace java {
         jchar *msg = buf;
         size_t msgLen = BUF_SIZE;
         getJavaException(env, msg, msgLen);
-
-        Local <String> jsmsg = String::NewFromTwoByte(isolate, msg, String::kNormalString, msgLen);
-        isolate->ThrowException(Exception::Error(jsmsg));
+		NanThrowError(Exception::Error(NanNew<String>(msg, msgLen)));
         if (msgLen > BUF_SIZE) {
             delete[] msg;
         }
@@ -140,7 +170,7 @@ namespace java {
 
         inline jobject unwrap(Local < Value > val) {
             Local <Object> obj = val->ToObject();
-            Local <Value> handle = obj->Get(String::NewFromUtf8(Isolate::GetCurrent(), "handle"));
+            Local <Value> handle = obj->Get(NanNew("handle"));
             if (!handle->IsExternal()) {
                 return NULL;
             }

@@ -1,3 +1,4 @@
 *.class
 *.node
 *.o
+/build/

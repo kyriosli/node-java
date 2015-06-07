@@ -8,26 +8,27 @@ var cb = require('./classBuilder'),
 var classFlags = constants.ACC_PUBLIC | constants.ACC_FINAL | constants.ACC_SYNTHETIC,
     helperFlags = constants.ACC_PRIVATE | constants.ACC_STATIC | constants.ACC_NATIVE;
 
-var rSignature = /^(\w+)(\(((?:\[*(?:L\w+(?:\/\w+)*;|.))*)\)(\[*(?:L\w+(?:\/\w+)*;|.)))$/;
+var rSignature = /^(\w+|<init>)(\(((?:\[*(?:L\w+(?:\/\w+)*;|.))*)\)(\[*(?:L\w+(?:\/\w+)*;|.)))$/;
+var $SIPUSH = 0x11, $LDC = 0x12, $LDC_W = 0x13, $GETFIELD = 0xb4, $WIDE = 0xc4, $INVOKESTATIC = 0xb8, $ALOAD_0 = 0x2a;
 
-exports.build = function (name, interfaces, methods) {
-    var builder = new Builder(name, 'java/lang/Object', interfaces, classFlags);
-    builder.defineField('J', 'J', constants.ACC_PRIVATE); // pointer to the c++ handle
-    var pointerIdx = builder.getMemberRef(constants.REF_FIELD, name, 'J', 'J');
+var fullBuf = new Uint8Array(4096), codeBuf = fullBuf.subarray(4);
 
-    var superInit = builder.getMemberRef(constants.REF_METHOD, 'java/lang/Object', '<init>', '()V');
-    // add default constructor if none supplied
-    builder.defineMethod('<init>', '(J)V', constants.ACC_PUBLIC, [builder.createCode(3, 3, new Uint8Array([
-        $ALOAD_0,
-        0xb7, superInit >> 8, superInit, // invokespecial Object.<init>
-        $ALOAD_0,
-        0x1f, // lload_1
-        0xb5, pointerIdx >> 8, pointerIdx, // putfield
-        0xb1
-    ]))]);
+fullBuf[0] = $ALOAD_0;
+fullBuf[1] = 0xb7;
+var maxStack;
+
+exports.build = function (name, superName, interfaces, methods) {
+    var builder = new Builder(name, superName, interfaces, classFlags);
+
+    var superCtor = builder.getMemberRef(constants.REF_METHOD, superName, '<init>', '()V');
+
+    fullBuf[2] = superCtor >> 8;
+    fullBuf[3] = superCtor;
 
     var nameIdx = builder.getString(name);
     var callHelpers = [], instructions = {};
+
+    var hasCtor = false;
 
     for (var ii = 0, ll = methods.length; ii < ll; ii++) {
         var signature = methods[ii];
@@ -42,59 +43,69 @@ exports.build = function (name, interfaces, methods) {
             fullRetType = retType;
         if (retType.length > 1) retType = 'L';
 
-        var callType = '(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;J' + argTypes.replace(/[L$]/g, 'Ljava/lang/Object;') + ')' +
-            (retType === '$' || retType === 'L' ? 'Ljava/lang/Object;' : retType);
+        var callType = '(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;' + argTypes.replace(/L/g, 'Ljava/lang/Object;') + ')' +
+            (retType === 'L' ? 'Ljava/lang/Object;' : retType);
 
         // console.log(signature, argTypes, retType, callType);
 
-        var code;
-        if (callType in instructions) {
-            code = instructions[callType];
-        } else {
-            callHelpers.push(callType);
-            var callerIdx = builder.getMemberRef(constants.REF_METHOD, name, '_$CALLJS', callType);
 
-            code = callInstructions(nameIdx, pointerIdx, argTypes, retType, retType === 'L' && fullRetType !== 'Ljava/lang/Object;' ? builder.getClass(fullRetType) : 0, callerIdx);
-            instructions[callType] = code;
-            builder.defineMethod('_$CALLJS', callType, helperFlags);
+        if (!(callType in instructions)) {
+            callHelpers.push(callType);
+            instructions[callType] = true;
         }
+
+        var callerIdx = builder.getMemberRef(constants.REF_METHOD, name, '_$CALLJS', callType);
+        var castRet = retType === 'L' && fullRetType !== 'Ljava/lang/Object;' ? builder.getClass(fullRetType) : 0;
+
         var methodNameIdx = builder.getString(methodName),
             methodTypeIdx = builder.getString(methodTypes);
-        code[3] = methodNameIdx >> 8;
-        code[4] = methodNameIdx;
-        code[6] = methodTypeIdx >> 8;
-        code[7] = methodTypeIdx;
+
+        var isCtor = methodName === '<init>';
+
+        if (isCtor) {
+            hasCtor = true;
+        }
+        var code = buildInstructions(nameIdx, methodNameIdx, methodTypeIdx, argTypes, retType, castRet, callerIdx, isCtor);
+        builder.defineMethod('_$CALLJS', callType, helperFlags);
+
         //console.log(signatureIdx, callType, Array.prototype.slice.call(code));
-        builder.defineMethod(methodName, methodTypes, constants.ACC_PUBLIC, [builder.createCode(argTypes.length + 5, argTypes.length + 1, code)]);
+        //console.log('defineMethod[' + signature + '] maxStack=' + maxStack, isCtor);
+        builder.defineMethod(methodName, methodTypes, constants.ACC_PUBLIC, [builder.createCode(maxStack, maxStack - 2, code)]);
     }
 
+    if (!hasCtor) {
+        // add default constructor if none supplied
+        codeBuf[0] = 0xb1; // return
+        //console.log('defineMethod[<init>()V] maxStack=1', true, fullBuf.subarray(0, 5));
+        builder.defineMethod('<init>', '()V', constants.ACC_PUBLIC, [builder.createCode(1, 1, fullBuf.subarray(0, 5))]);
+    }
 
     return {buffer: builder.build(), natives: callHelpers};
 
 };
-var $SIPUSH = 0x11, $LDC = 0x12, $LDC_W = 0x13, $GETFIELD = 0xb4, $WIDE = 0xc4, $INVOKESTATIC = 0xb8, $ALOAD_0 = 0x2a;
 
-var codeBuf = new Uint8Array(4096);
 
-function callInstructions(nameIdx, pointerIdx, argTypes, retType, retClass, callerIdx) {
+function buildInstructions(nameIdx, methodNameIdx, methodTypeIdx, argTypes, retType, retClass, callerIdx, isCtor) {
     var buf = codeBuf, idx = 12;
 
     buf[0] = $LDC;
     buf[1] = nameIdx;
     buf[2] = $LDC_W;
     // 3 and 4 is index of method name
+    buf[3] = methodNameIdx >> 8;
+    buf[4] = methodNameIdx;
     buf[5] = $LDC_W;
     // 6 and 7 is index of method type
-    buf[8] = $ALOAD_0; //aload_0;
-    buf[9] = $GETFIELD;
-    buf[10] = pointerIdx >> 8;
-    buf[11] = pointerIdx;
+    buf[6] = methodTypeIdx >> 8;
+    buf[7] = methodTypeIdx;
+    maxStack = 3;
 
     for (var i = 0, L = argTypes.length; i < L;) {
         var type = argTypes[i++];
+        maxStack += type == 'J' || type == 'D' ? 2 : 1;
         if (i < 4) {
             buf[idx++] = (
-                type === 'L' || type === '$' ? $ALOAD_0//aload_i
+                type === 'L' ? $ALOAD_0//aload_i
                     : type === 'F' ? 0x22//fload_i
                     : type === 'J' ? 0x1e//lload_i
                     : type === 'D' ? 0x26//dload_i
@@ -102,7 +113,7 @@ function callInstructions(nameIdx, pointerIdx, argTypes, retType, retClass, call
             ) + i;
         } else if (i < 256) {
             buf[idx++] =
-                type === 'L' || type === '$' ? 0x19//aload
+                type === 'L' ? 0x19//aload
                     : type === 'F' ? 0x17//fload_i
                     : type === 'J' ? 0x16//lload_i
                     : type === 'D' ? 0x18//dload_i
@@ -111,7 +122,7 @@ function callInstructions(nameIdx, pointerIdx, argTypes, retType, retClass, call
         } else {
             buf[idx++] = $WIDE;
             buf[idx++] =
-                type === 'L' || type === '$' ? 0x19//aload
+                type === 'L' ? 0x19//aload
                     : type === 'F' ? 0x17//fload_i
                     : type === 'J' ? 0x16//lload_i
                     : type === 'D' ? 0x18//dload_i
@@ -144,5 +155,5 @@ function callInstructions(nameIdx, pointerIdx, argTypes, retType, retClass, call
         buf[idx++] = 0xac; // ireturn
     }
 
-    return buf.subarray(0, idx);
+    return isCtor ? fullBuf.subarray(0, idx + 4) : buf.subarray(0, idx);
 }

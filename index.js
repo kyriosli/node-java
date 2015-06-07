@@ -1,8 +1,8 @@
-console.time("init");
-var bindings = require('./java.node');
+//console.time("init");
+var bindings = require('./build/Release/java.node');
 //
 initBinding();
-console.timeEnd("init");
+//console.timeEnd("init");
 // creates an java vm.
 // We do not reinitialize a new vm if one has already been created and we losts its reference.
 // And note that once a vm is destroyed, createVm becomes unstable, its behavior is vendor-specific.
@@ -13,7 +13,12 @@ exports.createVm = function () {
         return instance;
     // Because JavaVMOption accepts zero-terminated cstring as its input, we must
     // make sure that the input strings does not contain \0.
-    return instance = new JavaVM(bindings.createVm(arguments.length, Array.prototype.join.call(arguments, '\0')));
+    instance = new JavaVM(bindings.createVm(arguments.length, Array.prototype.join.call(arguments, '\0')));
+    bindings[0] = function (clsName, method) {
+        //console.log('invoke', clsName, method);
+        return instance.classCache[clsName].methods[method].apply(null, Array.prototype.slice.call(arguments, 2));
+    };
+    return instance;
 };
 
 function JavaVM(vm) {
@@ -43,15 +48,28 @@ JavaVM.prototype = {
     runMainAsync: function (cls, args) {
         return bindings.runMain(this.vm, cls, args, true);
     },
-    implement: function (interfaces, methods) {
+    implement: function (parentName, interfaces, methods) {
+        if (typeof parentName === 'object') {
+            if (parentName instanceof Array) {
+                methods = interfaces;
+                interfaces = parentName;
+            } else {
+                methods = parentName;
+                interfaces = [];
+            }
+            parentName = 'java/lang/Object';
+        } else if (!(interfaces instanceof Array)) {
+            methods = interfaces;
+            interfaces = [];
+        }
+
         var name = 'kyrios/Impl' + (nextImplId++).toString(36),
-            impl = require('./implement').build(name, interfaces, Object.keys(methods));
+            impl = require('./implement').build(name, parentName, interfaces, Object.keys(methods));
 
         require('fs').writeFileSync(name + '.class', new Buffer(new Uint8Array(impl.buffer)));
 
         var handle = bindings.defineClass(this.vm, name, impl.buffer, impl.natives),
             ret = instance.classCache[name] = new JavaClass(name, handle);
-        ret.newInstance = nativeNewInstance;
         ret.methods = methods;
 
         return ret;
@@ -91,12 +109,6 @@ JavaClass.prototype = {
         bindings.set(this.handle, field, value);
     }
 };
-
-function nativeNewInstance() {
-    var method = findMethod(this, '<init>(J)V', false);
-    var ref = bindings.nativeNewInstance(this.handle, method);
-    return new JavaObject(ref, this);
-}
 
 function invoker(isStatic, async) {
     return async ? function (signature) {
@@ -178,11 +190,71 @@ JavaObject.prototype = {
     },
     asObjectArray: function () {
         return new JavaObjectArray(this.handle);
+    },
+    asBooleanArray: function () {
+        return new PrimitiveArray(this.handle, 'Z')
+    },
+    asByteArray: function () {
+        return new PrimitiveArray(this.handle, 'B')
+    },
+    asShortArray: function () {
+        return new PrimitiveArray(this.handle, 'S')
+    },
+    asCharArray: function () {
+        return new PrimitiveArray(this.handle, 'C')
+    },
+    asIntArray: function () {
+        return new PrimitiveArray(this.handle, 'I')
+    },
+    asFloatArray: function () {
+        return new PrimitiveArray(this.handle, 'F')
+    },
+    asLongArray: function () {
+        return new PrimitiveArray(this.handle, 'J')
+    },
+    asDoubleArray: function () {
+        return new PrimitiveArray(this.handle, 'D')
     }
 };
 
-function JavaObjectArray(handle) {
+function PrimitiveArray(handle, type) {
+    this.handle = handle;
+    this.type = type.charCodeAt(0);
 }
+
+PrimitiveArray.prototype = {
+    get length() {
+        return bindings.getArrayLength(this.handle);
+    },
+    getRegion: function (start, end) {
+        return bindings.getPrimitiveArrayRegion(this.handle, start, end, this.type);
+    },
+    setRegion: function (buf, start, end) {
+        return bindings.setPrimitiveArrayRegion(this.handle, start, end, this.type, buf);
+    }
+};
+
+
+function JavaObjectArray(handle) {
+    this.handle = handle;
+}
+
+JavaObjectArray.prototype = {
+    get length() {
+        return bindings.getArrayLength(this.handle);
+    },
+    get: function (index) {
+        var handle = bindings.getObjectArrayItem(this.handle, index);
+        if (handle === null) {
+            return null;
+        }
+        return new JavaObject(handle, null);
+    },
+    set: function (index, val) {
+        var handle = typeof val === 'object' ? val ? val.handle : null : String(val);
+        bindings.setObjectArrayItem(this.handle, index, handle);
+    }
+};
 
 function initBinding() {
     var verbose = !!process.env.NODE_JAVA_VERBOSE;
