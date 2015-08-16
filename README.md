@@ -70,7 +70,9 @@ We tested the speed of method invocation in three situations:
 The result is:
 
 > invoke method with no args (100w): 1069ms
+> 
 > invoke method with 8 args (100w): 1596ms
+> 
 > invoke implemented method (100w): 2443ms
 
 So we have near 170w times of field access, or near 93w times of method invocation from javascript to java, or near 41w times of method invocation from java to javascript, with a low voltage CPU.
