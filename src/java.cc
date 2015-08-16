@@ -5,14 +5,20 @@
 namespace java {
     using namespace v8;
     bool verbose;
-    Persistent <Object> bindings;
+    Nan::Persistent <Object> bindings;
+    Nan::Persistent <ObjectTemplate> javaObjectWrap;
 
 
     // init bindings
     void init(Handle < Object > exports) {
-		NanScope();
-		NanAssignPersistent(bindings, exports);
-#define REGISTER(name)    NODE_SET_METHOD(exports, #name, vm::name);
+		  Nan::HandleScope _hscope;
+        bindings.Reset(Local<Object>(exports));
+        Local<ObjectTemplate> tmpl = Nan::New<ObjectTemplate>();
+        tmpl->SetInternalFieldCount(1);
+
+        javaObjectWrap.Reset(tmpl);
+		// NanAssignPersistent(bindings, exports);
+#define REGISTER(name)    Nan::SetMethod(exports, #name, vm::name);
         REGISTER(link);
         REGISTER(createVm);
         REGISTER(dispose);
@@ -33,6 +39,7 @@ namespace java {
         REGISTER(getPrimitiveArrayRegion);
         REGISTER(setPrimitiveArrayRegion);
 #undef REGISTER
+
     }
 }
 

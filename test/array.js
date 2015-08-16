@@ -70,6 +70,5 @@ assert.strictEqual(buf.length, 16);
 assert.strictEqual(buf.toString('utf16le'), 'aa bb cc');
 
 buf[2] = 'd'.charCodeAt(0);
-console.log(buf);
 arr.setRegion(buf);
 assert.strictEqual(vm.findClass('java/lang/String').invoke('valueOf([C)Ljava/lang/String;', arr), 'ad bb cc');

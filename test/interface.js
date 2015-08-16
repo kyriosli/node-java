@@ -76,16 +76,6 @@ assert.strictEqual(
 var diff = Date.now() - test.invoke('longMethod(J)J', 1e16);
 assert(diff >= -1 && diff <= 0);
 
-(function () {
-    var obj = vm.findClass('test/Test').newInstance(),
-        runnable = vm.implement(['java/lang/Runnable'], {
-            'run()V': function () {
-            }
-        }).newInstance();
-    console.time('invoke implemented method: 10w times');
-    obj.invoke('testRun(Ljava/lang/Runnable;)V', runnable);
-    console.timeEnd('invoke implemented method: 10w times');
-})();
 
 // extends super class
 var written = [];

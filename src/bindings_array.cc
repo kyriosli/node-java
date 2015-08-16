@@ -9,29 +9,29 @@ namespace java {
         NAN_METHOD(getObjectArrayItem) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaObject *handle = GET_PTR(args, 0, JavaObject *);
-            int idx = args[1]->Int32Value();
+            JavaObject *handle = JavaObject::Unwrap(info[0]);
+            int idx = info[1]->Int32Value();
 
             JNIEnv *env = handle->env;
             jobjectArray arr = static_cast<jobjectArray>(handle->_obj);
             jsize maxLen = env->GetArrayLength(arr);
             if (idx < 0 || idx >= maxLen) {
-                return NanThrowError("array index out of range");
+                return Nan::ThrowError("array index out of range");
             }
             jobject ret = env->GetObjectArrayElement(arr, idx);
             if (ret) {
-                RETURN(JavaObject::wrap(handle->jvm, env, ret, isolate));
+                info.GetReturnValue().Set(JavaObject::wrap(handle->jvm, env, ret));
             } else {
-                args.GetReturnValue().SetNull();
+                info.GetReturnValue().SetNull();
             }
 
         }
 
         // getPrimitiveArrayRegion(handle, start, end, type)
-        void getPrimitiveArrayRegion(const FunctionCallbackInfo <Value> &args) {
+        void getPrimitiveArrayRegion(const Nan::FunctionCallbackInfo <Value> &info) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaObject *handle = GET_PTR(args, 0, JavaObject *);
+            JavaObject *handle = JavaObject::Unwrap(info[0]);
 
 
             JNIEnv *env = handle->env;
@@ -40,23 +40,23 @@ namespace java {
 
             int start, end;
 
-            if (args[1]->IsUndefined()) {
+            if (info[1]->IsUndefined()) {
                 start = 0;
                 end = maxLen;
             } else {
-                start = args[1]->Int32Value();
-                end = args[2]->IsUndefined() ? maxLen : args[2]->Int32Value();
+                start = info[1]->Int32Value();
+                end = info[2]->IsUndefined() ? maxLen : info[2]->Int32Value();
             }
 
             if (start < 0 || end < start || end > maxLen) {
-                return NanThrowError("array index out of range");
+                return Nan::ThrowError("array index out of range");
                 return;
             }
 
             uint32_t len = end - start, size = 0;
 
             void *buf;
-            switch (args[3]->Int32Value()) {
+            switch (info[3]->Int32Value()) {
                 case 'Z':  // boolean
                     size = len * sizeof(jboolean);
                     env->GetBooleanArrayRegion(static_cast<jbooleanArray>(arr), start, len, static_cast<jboolean *>(buf = new char[size]));
@@ -90,34 +90,33 @@ namespace java {
                     env->GetDoubleArrayRegion(static_cast<jdoubleArray>(arr), start, len, static_cast<jdouble *>(buf = new char[size]));
                     break;
             }
-//            fprintf(stderr, "new buffer %s %d type:%d\n", buf, size, args[3]->Int32Value());
-            RETURN(node::Buffer::New(isolate, static_cast<char *>(buf), size));
+//            fprintf(stderr, "new buffer %s %d type:%d\n", buf, size, info[3]->Int32Value());
+            info.GetReturnValue().Set(node::Buffer::New(isolate, static_cast<char *>(buf), size));
             delete[] buf;
 
         }
 
         // setObjectArrayItem(handle, index, value)
-        void setObjectArrayItem(const FunctionCallbackInfo <Value> &args) {
+        void setObjectArrayItem(const Nan::FunctionCallbackInfo <Value> &info) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaObject *handle = GET_PTR(args, 0, JavaObject *);
-            int idx = args[1]->Int32Value();
+            JavaObject *handle = JavaObject::Unwrap(info[0]);
+            int idx = info[1]->Int32Value();
             JNIEnv *env = handle->env;
             jobjectArray arr = static_cast<jobjectArray>(handle->_obj);
             jsize maxLen = env->GetArrayLength(arr);
             if (idx < 0 || idx >= maxLen) {
-                return NanThrowError("array index out of range");
+                return Nan::ThrowError("array index out of range");
             }
 
-            Local <Value> val = args[2];
+            Local <Value> val = info[2];
             jobject obj;
             if (val->IsString()) {
                 obj = cast(env, val);
             } else if (val->IsNull()) {
                 obj = NULL;
             } else {
-                JavaObject *handle = GET_PTR(args, 2, JavaObject *);
-                obj = handle->_obj;
+                obj = JavaObject::unwrap<jobject>(info[2]);
             }
             env->SetObjectArrayElement(arr, idx, obj);
             if (obj) { // check exception
@@ -128,10 +127,10 @@ namespace java {
         }
 
         // setPrimitiveArrayRegion(handle, start, end, type, buffer)
-        void setPrimitiveArrayRegion(const FunctionCallbackInfo <Value> &args) {
+        void setPrimitiveArrayRegion(const Nan::FunctionCallbackInfo <Value> &info) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaObject *handle = GET_PTR(args, 0, JavaObject *);
+            JavaObject *handle = JavaObject::Unwrap(info[0]);
 
 
             JNIEnv *env = handle->env;
@@ -140,24 +139,24 @@ namespace java {
 
             int start, end;
 
-            if (args[1]->IsUndefined()) {
+            if (info[1]->IsUndefined()) {
                 start = 0;
                 end = maxLen;
             } else {
-                start = args[1]->Int32Value();
-                end = args[2]->IsUndefined() ? maxLen : args[2]->Int32Value();
+                start = info[1]->Int32Value();
+                end = info[2]->IsUndefined() ? maxLen : info[2]->Int32Value();
             }
 
             if (start < 0 || end < start || end > maxLen) {
-                return NanThrowError("array index out of range");
+                return Nan::ThrowError("array index out of range");
             }
 
             size_t len = end - start;
 
-            size_t bufLen = node::Buffer::Length(args[4]);
-            void *buf = node::Buffer::Data(args[4]);
+            size_t bufLen = node::Buffer::Length(info[4]);
+            void *buf = node::Buffer::Data(info[4]);
 
-            switch (args[3]->Int32Value()) {
+            switch (info[3]->Int32Value()) {
                 case 'Z':  // boolean
                     if ((bufLen /= sizeof(jboolean)) < len) len = bufLen;
                     env->SetBooleanArrayRegion(static_cast<jbooleanArray>(arr), start, len, static_cast<jboolean *>(buf));
@@ -194,16 +193,16 @@ namespace java {
         }
 
         //getArrayLength(handle)
-        void getArrayLength(const FunctionCallbackInfo <Value> &args) {
+        void getArrayLength(const Nan::FunctionCallbackInfo <Value> &info) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaObject *handle = GET_PTR(args, 0, JavaObject *);
+            JavaObject *handle = JavaObject::Unwrap(info[0]);
 
             JNIEnv *env = handle->env;
             jobjectArray arr = static_cast<jobjectArray>(handle->_obj);
             jsize maxLen = env->GetArrayLength(arr);
 
-            RETURN(Integer::New(isolate, maxLen));
+            info.GetReturnValue().Set(Integer::New(isolate, maxLen));
         }
     }
 }

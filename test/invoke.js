@@ -11,34 +11,6 @@ assert.strictEqual(vm.findClass("test/Test"), cls);
 var javaObject = cls.newInstance('ZBCSIFDJLjava/lang/String;',
     true, 127, 'A', 4095, 1048575, 12.34, Math.PI, Date.now(), 'Hello world');
 
-(function () {
-
-    console.log('invoke hashCode() 10w times');
-
-    javaObject.invoke('hashCode()I'); // generate method cache
-
-    console.time('invoke10w');
-
-    for (var i = 0; i < 1e5; i++) {
-        javaObject.invoke('hashCode()I');
-    }
-
-    console.timeEnd('invoke10w');
-
-    console.log('invoke test(ZBCSIFDJ) 10w times');
-
-    javaObject.invoke('test(ZBCSIFDJ)V'); // generate method cache
-
-    console.time('invoke10w2');
-
-    for (var i = 0; i < 1e5; i++) {
-        javaObject.invoke('test(ZBCSIFDJ)V', 0, 0, 0, 0, 0, 0, 0, 0);
-    }
-
-    console.timeEnd('invoke10w2');
-
-
-})();
 
 console.time('invoke');
 

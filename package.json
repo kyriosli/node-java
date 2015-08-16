@@ -23,5 +23,8 @@
   "bugs": {
     "url": "https://github.com/kyriosli/node-java/issues"
   },
+  "engines" : {
+    "node" : ">0.12"
+  },
   "homepage": "https://github.com/kyriosli/node-java"
 }

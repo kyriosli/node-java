@@ -7,19 +7,15 @@
 
 
 #define JNI_VERSION    JNI_VERSION_1_6
-#define GET_PTR(args, idx, type)    static_cast<type>(External::Cast(*args[idx])->Value())
+#define GET_PTR(info, idx, type)    static_cast<type>(External::Cast(*info[idx])->Value())
 #define CHECK_ERRNO(errno, msg)    if(errno) {\
         char errMsg[128];\
         sprintf(errMsg, msg " with error code: %d", errno);\
-        return NanThrowError(errMsg);\
+        return Nan::ThrowError(errMsg);\
     }
 
 #define GET_ENV(jvm, env) jvm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION)
 #define SAFE_GET_ENV(jvm, env) CHECK_ERRNO(GET_ENV(jvm, env), "`GetEnv' failed")
-
-
-#define RETURN(val)    args.GetReturnValue().Set(val)
-#define UNWRAP(arg, type)    static_cast<type>(static_cast<JavaObject*>(External::Cast(*arg)->Value())->_obj)
 
 namespace java {
 
@@ -58,7 +54,8 @@ namespace java {
     } global_refs;
 
     using namespace v8;
-    extern Persistent <Object> bindings;
+    extern Nan::Persistent <Object> bindings;
+    extern Nan::Persistent <ObjectTemplate> javaObjectWrap;
 
 
     /**
@@ -69,46 +66,33 @@ namespace java {
     */
     void getJavaException(JNIEnv * env, jchar * &buf, size_t & len);
 
-    class JavaObject {
+    class JavaObject: public Nan::ObjectWrap {
     private:
-        Persistent <External> _ref;
-
-        static void WeakCallback(const WeakCallbackData <External, JavaObject> &data);
-
-        inline JavaObject(JavaVM *jvm, JNIEnv *env, Isolate *isolate, jobject obj) :
-                _ref(isolate, External::New(isolate, this)),
+        inline JavaObject(JavaVM *jvm, JNIEnv *env, jobject obj) : Nan::ObjectWrap(),
                 jvm(jvm), env(env), _obj(obj) {
-            _ref.SetWeak(this, WeakCallback);
-            _ref.MarkIndependent();
+            Wrap(Nan::New(javaObjectWrap)->NewInstance());
+            MakeWeak();
         }
     public:
         JavaVM *jvm;
         JNIEnv *env;
         jobject _obj;
 
-        inline JavaObject() {
-        }
-
-        static inline Local <Value> wrap(JavaVM *jvm, JNIEnv *env, jobject obj, Isolate *isolate) {
+        static inline Local <Value> wrap(JavaVM *jvm, JNIEnv *env, jobject obj) {
             if (!obj) return Local<Value>();
-            JavaObject *ptr = new JavaObject(jvm, env, isolate, env->NewGlobalRef(obj));
+            JavaObject *ptr = new JavaObject(jvm, env, env->NewGlobalRef(obj));
             env->DeleteLocalRef(obj);
-            return NanNew<External>(ptr->_ref);
+            return ptr->handle();
         }
 
-
-        inline Persistent <External> &resetNative(JavaVM *jvm_, JNIEnv *env_, jobject obj, Isolate *isolate) {
-            NanAssignPersistent(_ref, NanNew<External>(this));
-            _ref.MarkIndependent();
-            jvm = jvm_;
-            env = env_;
-            _obj = env->NewGlobalRef(obj);
-            env->DeleteLocalRef(obj);
-            return _ref;
-
+        static inline JavaObject* Unwrap(Local<Value> any) {
+            return Nan::ObjectWrap::Unwrap<JavaObject>(any.As<Object>());
         }
 
-
+        template<typename s>
+        static inline s unwrap(Local<Value> any) {
+            return static_cast<s>(Nan::ObjectWrap::Unwrap<JavaObject>(any.As<Object>())->_obj);
+        }
     };
 
     class JavaMethod {
@@ -126,7 +110,7 @@ namespace java {
         }
 
         inline Local <External> wrap(Isolate *isolate) {
-            return NanNew<External>(this);
+            return Nan::New<External>(this);
         }
     };
 
@@ -137,7 +121,9 @@ namespace java {
 
         jsize strlen = env->GetStringLength(javastr);
         const jchar *chars = env->GetStringCritical(javastr, NULL);
-        Local <String> ret = NanNew<String>(chars, strlen);
+        // Local <String> ret = Nan::New<String>(chars, strlen);
+        // TODO: Nan does not support new string from two bytes with length.
+        Local <String> ret = String::NewFromTwoByte(isolate, chars, v8::String::kNormalString, strlen);
         env->ReleaseStringCritical(javastr, chars);
         return ret;
     }
@@ -160,7 +146,7 @@ namespace java {
         jchar *msg = buf;
         size_t msgLen = BUF_SIZE;
         getJavaException(env, msg, msgLen);
-		NanThrowError(Exception::Error(NanNew<String>(msg, msgLen)));
+		Nan::ThrowError(Exception::Error(String::NewFromTwoByte(isolate, msg, v8::String::kNormalString, msgLen)));
         if (msgLen > BUF_SIZE) {
             delete[] msg;
         }
@@ -170,11 +156,11 @@ namespace java {
 
         inline jobject unwrap(Local < Value > val) {
             Local <Object> obj = val->ToObject();
-            Local <Value> handle = obj->Get(NanNew("handle"));
-            if (!handle->IsExternal()) {
+            Local <Value> handle = obj->Get(Nan::NewOneByteString(reinterpret_cast<const uint8_t*>("handle"), 6).ToLocalChecked());
+            if (!handle->IsObject()) {
                 return NULL;
             }
-            return UNWRAP(handle, jobject);
+            return JavaObject::unwrap<jobject>(handle);
 
         }
 

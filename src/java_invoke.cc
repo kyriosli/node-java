@@ -2,15 +2,6 @@
 
 using namespace v8;
 
-void java::JavaObject::WeakCallback(const WeakCallbackData <External, JavaObject> &data) {
-    JavaObject *ptr = data.GetParameter();
-    ptr->_ref.Reset();
-    ptr->env->DeleteGlobalRef(ptr->_obj);
-    delete ptr;
-//	static int sum = 0;
-//	if(!(sum++ & 32767)) fprintf(stderr, "%d references deleted\n", sum);
-}
-
 void java::invoke(JNIEnv *env, jobject obj, JavaMethod *method, jvalue *values, jvalue &ret) {
     jmethodID methodID = method->methodID;
     if (method->isStatic) { // is static
@@ -107,7 +98,7 @@ Local <Value> java::convert(const char type, Isolate *isolate, JavaVM *jvm, JNIE
         case '$':
             return cast(env, isolate, (jstring) val.l);
         case 'L':
-            return JavaObject::wrap(jvm, env, val.l, isolate);
+            return JavaObject::wrap(jvm, env, val.l);
     }
     return Local<Value>();
 }

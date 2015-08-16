@@ -19,10 +19,18 @@ public class Test implements Runnable {
     public void test(boolean z, byte b, char c, short s, int i, float f, double d, long j) {
     }
 
-    public void testRun(Runnable r) {
-        for(int i = 0; i < 1e5; i++) {
-            r.run();
-        }
+    public void testRun(Runnable r, int count) {
+    	count = count >> 3;
+    	while(count-- > 0) {
+    		r.run();
+    		r.run();
+    		r.run();
+    		r.run();
+    		r.run();
+    		r.run();
+    		r.run();
+    		r.run();
+    	}
     }
 
 	public void method(String str) {

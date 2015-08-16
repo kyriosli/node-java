@@ -15,12 +15,12 @@ namespace java {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
 
-            void *handle = dlopen(*String::Utf8Value(args[0]), RTLD_LAZY | RTLD_GLOBAL);
+            void *handle = dlopen(*String::Utf8Value(info[0]), RTLD_LAZY | RTLD_GLOBAL);
             if (!handle) {
-                return NanThrowError(dlerror());
+                return Nan::ThrowError(dlerror());
             }
 
-            verbose = args[1]->BooleanValue();
+            verbose = info[1]->BooleanValue();
             native::init();
 
         }
@@ -40,8 +40,8 @@ namespace java {
                 JavaVMInitArgs vm_args;
                 vm_args.version = JNI_VERSION;
 
-                int argc = args[0]->Int32Value();
-                String::Utf8Value argv(args[1]);
+                int argc = info[0]->Int32Value();
+                String::Utf8Value argv(info[1]);
 
                 char *ptr = *argv;
 
@@ -66,7 +66,7 @@ namespace java {
                 }
             }
 
-            RETURN(External::New(isolate, jvm));
+            info.GetReturnValue().Set(External::New(isolate, jvm));
         }
 
 
@@ -75,13 +75,13 @@ namespace java {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
 
-            JavaVM *jvm = GET_PTR(args, 0, JavaVM *);
+            JavaVM *jvm = GET_PTR(info, 0, JavaVM *);
 
             JNIEnv *env;
             SAFE_GET_ENV(jvm, env)
             env->PushLocalFrame(128);
 
-            jclass cls = env->FindClass(*String::Utf8Value(args[1]));
+            jclass cls = env->FindClass(*String::Utf8Value(info[1]));
             if (!cls) { // exception occured
                 ThrowJavaException(env, isolate);
                 env->PopLocalFrame(NULL);
@@ -91,10 +91,10 @@ namespace java {
             jmethodID main = env->GetStaticMethodID(cls, "main", "([Ljava/lang/String;)V");
             if (!main) {
                 env->PopLocalFrame(NULL);
-                return NanThrowError("main method not found");
+                return Nan::ThrowError("main method not found");
             }
             // convert arguments
-            Local <Array> argv = Local<Array>::Cast(args[2]);
+            Local <Array> argv = Local<Array>::Cast(info[2]);
             int argc = argv->Length();
 
             static jclass JavaLangString = (jclass) env->NewGlobalRef(env->FindClass("java/lang/String"));
@@ -104,9 +104,9 @@ namespace java {
                 env->SetObjectArrayElement(javaArgs, i, cast(env, argv->Get(i)));
             }
 
-            if (args[3]->BooleanValue()) { // async == true
+            if (info[3]->BooleanValue()) { // async == true
                 async::MainTask *task = new async::MainTask(jvm, env, cls, main, javaArgs, isolate);
-                RETURN(task->promise());
+                info.GetReturnValue().Set(task->promise());
             } else {
                 jvalue jargs;
                 jargs.l = javaArgs;
@@ -124,29 +124,29 @@ namespace java {
         NAN_METHOD(findClass) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaVM *jvm = GET_PTR(args, 0, JavaVM *);
+            JavaVM *jvm = GET_PTR(info, 0, JavaVM *);
 
             JNIEnv *env;
             SAFE_GET_ENV(jvm, env)
 
-            jclass cls = env->FindClass(*String::Utf8Value(args[1]));
+            jclass cls = env->FindClass(*String::Utf8Value(info[1]));
             if (!cls) { // exception occured
                 ThrowJavaException(env, isolate);
                 return;
             }
-            RETURN(JavaObject::wrap(jvm, env, cls, isolate));
+            info.GetReturnValue().Set(JavaObject::wrap(jvm, env, cls));
         }
 
         // getClass(obj, cache, self)
         NAN_METHOD(getClass) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaObject *handle = GET_PTR(args, 0, JavaObject *);
+            JavaObject *handle = JavaObject::Unwrap(info[0]);
 
             JNIEnv *env = handle->env;
 
             env->PushLocalFrame(16);
-            jclass cls = args[2]->BooleanValue() ? reinterpret_cast<jclass>(handle->_obj) : env->GetObjectClass(handle->_obj);
+            jclass cls = info[2]->BooleanValue() ? reinterpret_cast<jclass>(handle->_obj) : env->GetObjectClass(handle->_obj);
             static jmethodID GetClassName = env->GetMethodID(env->GetObjectClass(cls), "getName", "()Ljava/lang/String;");
             jstring name = (jstring) env->CallObjectMethod(cls, GetClassName);
 
@@ -162,7 +162,7 @@ namespace java {
             env->ReleaseStringCritical(name, chars);
 
 
-            Local <Object> classCache = Local<Object>::Cast(args[1]);
+            Local <Object> classCache = Local<Object>::Cast(info[1]);
 
             bool hasKey = classCache->Has(clsName);
 
@@ -170,10 +170,10 @@ namespace java {
             ret->Set(0, clsName);
 
             if (!hasKey) {
-                ret->Set(1, JavaObject::wrap(handle->jvm, env, env->GetObjectClass(handle->_obj), isolate));
+                ret->Set(1, JavaObject::wrap(handle->jvm, env, env->GetObjectClass(handle->_obj)));
             }
 
-            RETURN(ret);
+            info.GetReturnValue().Set(ret);
             env->PopLocalFrame(NULL);
         }
 
@@ -181,17 +181,17 @@ namespace java {
         NAN_METHOD(findField) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaObject *handle = GET_PTR(args, 0, JavaObject *);
+            JavaObject *handle = JavaObject::Unwrap(info[0]);
 
             JNIEnv *env = handle->env;
             jclass cls = (jclass) handle->_obj; // a global reference
 
-            String::Utf8Value Name(args[1]);
-            String::Utf8Value Type(args[2]);
+            String::Utf8Value Name(info[1]);
+            String::Utf8Value Type(info[2]);
 
             const char *pname = *Name, *ptype = *Type;
 
-            bool isStatic = args[3]->BooleanValue();
+            bool isStatic = info[3]->BooleanValue();
 
             jfieldID fieldID = isStatic ?
                     env->GetStaticFieldID(cls, pname, ptype) :
@@ -201,7 +201,7 @@ namespace java {
                 char buf[128];
                 sprintf(buf, "field `%s' with type `%s' not found.", pname, ptype);
                 env->ExceptionClear();
-                return NanThrowError(buf);
+                return Nan::ThrowError(buf);
             }
 
             char type = ptype[0];
@@ -214,19 +214,19 @@ namespace java {
 
             long long result = reinterpret_cast<long long>(fieldID) | static_cast<long long>(type) << 40 | static_cast<long long>(isStatic) << 48;
 
-            RETURN(Number::New(isolate, result));
+            info.GetReturnValue().Set(Number::New(isolate, result));
         }
 
         // get(handle, field)
         NAN_METHOD(get) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaObject *handle = GET_PTR(args, 0, JavaObject *);
+            JavaObject *handle = JavaObject::Unwrap(info[0]);
 
             JNIEnv *env = handle->env;
             jobject obj = handle->_obj; // a global reference
 
-            long long field = args[1]->NumberValue();
+            long long field = info[1]->NumberValue();
             bool isStatic = field >> 48;
             char type = field >> 40;
             jfieldID fieldID = reinterpret_cast<jfieldID>(field & 0xffffffffff);
@@ -297,7 +297,7 @@ namespace java {
                 }
             }
 
-            RETURN(convert(type, isolate, handle->jvm, env, val));
+            info.GetReturnValue().Set(convert(type, isolate, handle->jvm, env, val));
 
         }
 
@@ -305,18 +305,18 @@ namespace java {
         NAN_METHOD(set) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaObject *handle = GET_PTR(args, 0, JavaObject *);
+            JavaObject *handle = JavaObject::Unwrap(info[0]);
 
             JNIEnv *env = handle->env;
             jobject obj = handle->_obj; // a global reference
 
-            long long field = args[1]->NumberValue();
+            long long field = info[1]->NumberValue();
             bool isStatic = field >> 48;
             char type = field >> 40;
             jfieldID fieldID = reinterpret_cast<jfieldID>(field & 0xffffffffff);
 
             jvalue val;
-            parseValue(val, type, args[2], env);
+            parseValue(val, type, info[2], env);
 
             if (isStatic) {
                 jclass cls = (jclass) obj;
@@ -389,14 +389,14 @@ namespace java {
         NAN_METHOD(findMethod) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaObject *handle = GET_PTR(args, 0, JavaObject *);
+            JavaObject *handle = JavaObject::Unwrap(info[0]);
 
             JNIEnv *env = handle->env;
             jclass cls = (jclass) handle->_obj; // a global reference
 
 
-            bool isStatic = args[2]->BooleanValue();
-            String::Utf8Value signature(args[1]);
+            bool isStatic = info[2]->BooleanValue();
+            String::Utf8Value signature(info[1]);
             const char *ptr = *signature;
             char name[128];
 
@@ -417,7 +417,7 @@ namespace java {
                 char buf[128];
                 sprintf(buf, "method `%s' with signature `%s' not found.", name, ptr);
                 env->ExceptionClear();
-                return NanThrowError(buf);
+                return Nan::ThrowError(buf);
             }
 
             JavaMethod *method = new JavaMethod(methodID, isStatic);
@@ -471,27 +471,25 @@ namespace java {
             method->argTypes = argTypes;
             method->retType = retType;
 
-            RETURN(method->wrap(isolate));
+            info.GetReturnValue().Set(method->wrap(isolate));
 
         }
 
 
         // newInstance(cls, method, args)
         NAN_METHOD(newInstance) {
-            Isolate *isolate = Isolate::GetCurrent();
-            HandleScope handle_scope(isolate);
-            JavaObject *handle = GET_PTR(args, 0, JavaObject *);
-            JavaMethod *method = GET_PTR(args, 1, JavaMethod *);
+            JavaObject *handle = JavaObject::Unwrap(info[0]);
+            JavaMethod *method = GET_PTR(info, 1, JavaMethod *);
 
             JNIEnv *env = handle->env;
             jclass cls = (jclass) handle->_obj; // a global reference
 
             jvalue values[256];
             env->PushLocalFrame(128);
-            parseValues(env, method, args[2], values);
+            parseValues(env, method, info[2], values);
 
             jobject ref = env->NewObjectA(cls, method->methodID, values);
-            RETURN(JavaObject::wrap(handle->jvm, env, ref, isolate));
+            info.GetReturnValue().Set(JavaObject::wrap(handle->jvm, env, ref));
             env->PopLocalFrame(NULL);
         }
 
@@ -499,9 +497,8 @@ namespace java {
         // invokeAsync(obj, method, args)
         NAN_METHOD(invokeAsync) {
             Isolate *isolate = Isolate::GetCurrent();
-            HandleScope handle_scope(isolate);
-            JavaObject *handle = GET_PTR(args, 0, JavaObject *);
-            JavaMethod *method = GET_PTR(args, 1, JavaMethod *);
+            JavaObject *handle = JavaObject::Unwrap(info[0]);
+            JavaMethod *method = GET_PTR(info, 1, JavaMethod *);
 
             JNIEnv *env = handle->env;
 
@@ -509,7 +506,7 @@ namespace java {
 
             async::InvokeTask *task = new async::InvokeTask(isolate, handle, method);
 
-            Local <Object> arguments = Local<Object>::Cast(args[2]);
+            Local <Object> arguments = Local<Object>::Cast(info[2]);
 
             for (int count = method->args, i = 0; i < count; i++) {
                 jvalue &val = task->values[i];
@@ -520,7 +517,7 @@ namespace java {
                 }
             }
 
-            RETURN(task->promise());
+            info.GetReturnValue().Set(task->promise());
             env->PopLocalFrame(NULL);
         }
 
@@ -528,13 +525,13 @@ namespace java {
         NAN_METHOD(invoke) {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
-            JavaObject *handle = GET_PTR(args, 0, JavaObject *);
-            JavaMethod *method = GET_PTR(args, 1, JavaMethod *);
+            JavaObject *handle = JavaObject::Unwrap(info[0]);
+            JavaMethod *method = GET_PTR(info, 1, JavaMethod *);
 
             JNIEnv *env = handle->env;
             jvalue values[256];
             env->PushLocalFrame(128);
-            parseValues(env, method, args[2], values);
+            parseValues(env, method, info[2], values);
 
             jvalue ret;
             java::invoke(env, handle->_obj, method, values, ret);
@@ -546,9 +543,9 @@ namespace java {
                 char retType = method->retType;
                 if (retType != 'V') {
                     if ((retType == '$' || retType == 'L') && !ret.l) {
-                        args.GetReturnValue().SetNull();
+                        info.GetReturnValue().SetNull();
                     } else {
-                        RETURN(convert(retType, isolate, handle->jvm, env, ret));
+                        info.GetReturnValue().Set(convert(retType, isolate, handle->jvm, env, ret));
                     }
                 }
             }
@@ -560,7 +557,7 @@ namespace java {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
 
-            JavaVM *jvm = GET_PTR(args, 0, JavaVM *);
+            JavaVM *jvm = GET_PTR(info, 0, JavaVM *);
             jint err = jvm->DestroyJavaVM();
             CHECK_ERRNO(err, "destroyVm failed");
         }
@@ -571,15 +568,15 @@ namespace java {
             Isolate *isolate = Isolate::GetCurrent();
             HandleScope handle_scope(isolate);
 
-            JavaVM *jvm = GET_PTR(args, 0, JavaVM *);
+            JavaVM *jvm = GET_PTR(info, 0, JavaVM *);
 
             JNIEnv *env;
             SAFE_GET_ENV(jvm, env)
 
-            String::Utf8Value Name(args[1]);
+            String::Utf8Value Name(info[1]);
             const char *pname = *Name;
 
-            Local <ArrayBuffer> buffer = Local<ArrayBuffer>::Cast(args[2]);
+            Local <ArrayBuffer> buffer = Local<ArrayBuffer>::Cast(info[2]);
 
             ArrayBuffer::Contents contents = buffer->Externalize();
 
@@ -591,7 +588,7 @@ namespace java {
                 return;
             }
 
-            Local <Array> natives = Local<Array>::Cast(args[3]);
+            Local <Array> natives = Local<Array>::Cast(info[3]);
             for (int i = 0, L = natives->Length(); i < L; i++) {
                 String::Utf8Value Signature(natives->Get(i));
                 const char *ptr = *Signature;
@@ -607,7 +604,7 @@ namespace java {
                 CHECK_ERRNO(err, "RegisterNatives failed");
             }
 
-            RETURN(JavaObject::wrap(jvm, env, cls, isolate));
+            info.GetReturnValue().Set(JavaObject::wrap(jvm, env, cls));
 
         }
 

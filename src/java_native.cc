@@ -12,7 +12,7 @@ namespace java {
     namespace native {
         void *callbacks[92];
 
-        void execute(JNIEnv *env, Isolate *isolate, const va_list &vl, jvalue *ret) {
+        void execute(JNIEnv *env, Isolate *isolate, va_list &vl, jvalue *ret) {
             HandleScope handle_scope(isolate);
 
             va_arg(vl, jclass);

@@ -15,15 +15,20 @@
         "<!(node -e \"require('nan')\")"
       ],
       "conditions": [
-        [
-          "OS==\"linux\"",
-          {
-            "include_dirs": [
-              "<!(echo $JAVA_HOME)/include",
-              "<!(echo $JAVA_HOME)/include/linux"
-            ]
-          }
-        ]
+        ["OS==\"linux\"",
+        {
+          "include_dirs": [
+            "<!(echo $JAVA_HOME)/include",
+            "<!(echo $JAVA_HOME)/include/linux"
+          ]
+        }],
+        ["OS==\"mac\"",
+        {
+          "include_dirs": [
+            "<!(/usr/libexec/java_home)/include",
+            "<!(/usr/libexec/java_home)/include/darwin"
+          ]
+        }]
       ]
     }
   ]

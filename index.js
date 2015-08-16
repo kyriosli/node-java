@@ -66,7 +66,7 @@ JavaVM.prototype = {
         var name = 'kyrios/Impl' + (nextImplId++).toString(36),
             impl = require('./implement').build(name, parentName, interfaces, Object.keys(methods));
 
-        require('fs').writeFileSync(name + '.class', new Buffer(new Uint8Array(impl.buffer)));
+        // require('fs').writeFileSync(name + '.class', new Buffer(new Uint8Array(impl.buffer)));
 
         var handle = bindings.defineClass(this.vm, name, impl.buffer, impl.natives),
             ret = instance.classCache[name] = new JavaClass(name, handle);
@@ -256,21 +256,33 @@ JavaObjectArray.prototype = {
     }
 };
 
-function initBinding() {
+function initBinding(resolve, reject) {
     var verbose = !!process.env.NODE_JAVA_VERBOSE;
 
+    var platform = process.platform, arch = process.arch;
     var java_home = process.env.JAVA_HOME,
         jre_home = process.env.JRE_HOME;
-    if (java_home === undefined && jre_home === undefined) {
-        throw new Error("neither JAVA_HOME nor JRE_HOME is found in environment variables");
-    }
+
     var fs = require('fs');
 
-    var platform = process.platform, arch = process.arch;
+    if(!java_home && !jre_home && platform === 'darwin') {
+        try {
+            java_home = ('' + require('child_process').execFileSync('/usr/libexec/java_home')).replace(/\n$/, '');
+        } catch(e) {
+            verbose && console.log('failed to find JAVA_HOME with command `/usr/libexec/java_home`: ' + e.message);
+        }
+    }
+
+    if (!java_home && !jre_home) {
+        throw new Error("neither JAVA_HOME nor JRE_HOME is found in environment variables");
+    }
+
 
     switch (true) {
-        case java_home && platform === "linux" && arch === "x64" && test(java_home + "/jre/lib/amd64/server/libjvm.so"):
-        case jre_home && platform === "linux" && arch === "x64" && test(jre_home + "/lib/amd64/server/libjvm.so"):
+        case platform === "linux" && arch === "x64" && java_home && test(java_home + "/jre/lib/amd64/server/libjvm.so"):
+        case platform === "linux" && arch === "x64" && jre_home && test(jre_home + "/lib/amd64/server/libjvm.so"):
+        case platform === "darwin" && java_home && test(java_home + "/jre/lib/server/libjvm.dylib"):
+        case platform === "darwin" && jre_home && test(jre_home + "/lib/server/libjvm.dylib"):
             break;
 
         default:
