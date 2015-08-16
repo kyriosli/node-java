@@ -23,9 +23,9 @@ var vm = java.createVm(),
             'run()V': function () {
             }
         }).newInstance();
-    console.time('invoke implemented method (10w)');
-    obj.invoke('testRun(Ljava/lang/Runnable;I)V', runnable, 1e5);
-    console.timeEnd('invoke implemented method (10w)');
+    console.time('invoke implemented method (100w)');
+    obj.invoke('testRun(Ljava/lang/Runnable;I)V', runnable, 1e6);
+    console.timeEnd('invoke implemented method (100w)');
 })();
 
 

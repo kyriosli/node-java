@@ -1,60 +1,88 @@
 # java wrapper for Node.js
 
-# build
+This module supplies a low-level implemention to create and interact with a java virtual machine within a node.js program. The interface is
+such ugly that you should not use it directly in your program, a package that supplies a pure javascript style appearance should be used.
 
-build steps require JDK and Node.js installed, and `JAVA_HOME` environment must be set to the JDK root directory
+Currently we support only linux and osx, and windows support is on progress.
 
-linux users:
- 
-    npm install -g node-gyp # if you do not have node-gyp installed
-    npm install git@github.com:kyriosli/node-java.git
 
-# usage
+# Getting started
 
-    var vm = require('./node-java').createVm();
-    vm.runMain("path/to/Main", ["string", "args"]);
-    
-## environment variables
+## Installing dependencies
+
+As we were not supplying binary module files, you need to build it yourself. You need to install JDK and Node.JS as well as a c++ compiler.
+
+For linux users: you should set a environment variable named `JAVA_HOME` that points to your JDK installation, such as
+```sh
+export JAVA_HOME=/usr/share/java/default-jdk
+```
+We have tested on g++-4.9, and should be working on 4.4+. If you run into any problem, please contact us by issuing a bug, and be kind enough to post your error message.
+
+For osx users: we usually find your JDK by running `/usr/libexec/java_home`, but if we cannot find it, or you want to use a specific JDK installation, you should also supply the `JAVA_HOME` variable as we concerned before.
+
+You can install a command line compiler by running `xcode-select --install` in your terminal.
+
+## Building
+ ```sh
+(sudo) npm install -g node-gyp # if you do not have node-gyp installed
+npm install nan # if you do not have nan installed
+npm install kyriosli/node-java
+```
+
+## Running
+```js
+var vm = require('node-java').createVm();
+vm.runMain("path/to/Main", ["string", "args"]);
+```
+At run time, you do not need a full JDK installation, but at least a JRE should be installed. The following environment variables will be used to check the java installation:
 
   - JAVA_HOME
-    default entry to build native module, and find jvm shared library at runtime.
+    default entry to find jvm shared library at runtime. Can be ignored in osx (`/usr/libexec/java_home` is used)
   - JRE_HOME
-    fallback entry to find jvm shared library.
+    fallback entry to find jvm shared library if JAVA_HOME is not set
   - NODE_JAVA_VERBOSE
-    set this env to display more message and returns java stack trace when error occurs
-    
+    gives more information about dynamic library loading. Also gives full java stack trace when an java exception has occurred and caught.
     
 # performance
 
-tested on a single core linux server, with `iojs-1.1.0` and `jdk-1.8.0_25` 
+tested on a macbook air 2004 with `node-0.12.5` and `jdk-1.8.0_25` with power supply attached and energy saving disabled
 
-    $ uname -a
-    Linux ...... 3.16.0-4-amd64 #1 SMP Debian 3.16.7-ckt4-3 (2015-02-03) x86_64 GNU/Linux
-    $ cat /proc/cpuinfo
-    ...
-    model name      : Intel(R) Xeon(R) CPU E5-2630 0 @ 2.30GHz
-    ...
-    $ node -v
-    v1.1.0
-    $ java -version
-    java version "1.8.0_25"
-    Java(TM) SE Runtime Environment (build 1.8.0_25-b17)
-    Java HotSpot(TM) 64-Bit Server VM (build 25.25-b02, mixed mode)
+```sh
+$ uname -a
+Darwin ... 14.5.0 Darwin Kernel Version 14.5.0: Wed Jul 29 02:26:53 PDT 2015; root:xnu-2782.40.9~1/RELEASE_X86_64 x86_64
+$ sysctl -n machdep.cpu.brand_string
+Intel(R) Core(TM) i5-4260U CPU @ 1.40GHz
+```
+**Getting class/object fields**
 
-  - 800,000 function calls with no parameters (`Object.hashValue()`) per second
-  - 560,000 function calls with 8 parameters per second
-  - 4,000,000 static field access(`Math.PI`) per second
-  - 230,000 function calls from java to implemented methods with js
+This metric shows the time cost of accessing a class's static field, or an object's member field. We choose `java.lang.Math.PI` as the example, the result is:
 
+> get java.lang.Math.PI (100w): 590ms
 
+**Invoking methods**
+
+We tested the speed of method invocation in three situations:
+
+  - calling java method with no arguments from javascript
+  - calling java method with 8 arguments from javascript
+  - calling java method that is implemented with javascript from java
+
+The result is:
+
+> invoke method with no args (100w): 1069ms
+> invoke method with 8 args (100w): 1596ms
+> invoke implemented method (100w): 2443ms
+
+So we have near 170w times of field access, or near 93w times of method invocation from javascript to java, or near 41w times of method invocation from java to javascript, with a low voltage CPU.
+  
 # apis
 
 ## module node-java
 
 ### createVm
-
-    function createVm (string ...options)
-
+```js
+function createVm (string ...options)
+```
 Creates a jvm instance, or returns an instance already created.
 
 Java vm options can be specified by arguments, such as `"-Xms256m"`
@@ -64,17 +92,17 @@ Java vm options can be specified by arguments, such as `"-Xms256m"`
 ## class JavaVM
 
 ### runMain
-
-    function runMain(string className, optional string[] args)
-
+```
+function runMain(string className, optional string[] args)
+```
 Runs `public static void main(String[] args)` with specified class and arguments.
  
 See [ClassNames](#classnames) for more details
 
 ### runMainAsync
-
-    function runMainAsync(string className, optional string[] args)
-
+```js
+function runMainAsync(string className, optional string[] args)
+```
 Asynchronous version of `runMain` which returns a `Promise` and schedules main task in a thread pool
 
 Warning: DO NOT run more than 4 thread blocking async processes at the same time, cause `node-java` uses Node.js's
@@ -82,31 +110,33 @@ uv_thread_pool to run those tasks, that shares the same thread pool limit with g
 operations won't be available till blocking state ends.
  
 ### findClass
-
-    function findClass(string className)
+```js
+function findClass(string className)
+```
 
   - Returns: a instance of class `JavaClasss`
-
-Throws: class not found error
+  - Throws: class not found error
 
 ### implement
-
-    function implement(optional string superClass, optional string[] interfaces, object methods)
+```js
+function implement(optional string superClass, optional string[] interfaces, object methods)
+```
 
 Implement a java class with javascript methods. `interfaces` is list of java interfaces that the generated java class will
 implement, and `methods` is map of methods that will be implemented.
 
 For example:
+```js
+var vm = require('./node-java').createVm();
+var Runnable = vm.implement(['java/lang/Runnable'], {
+    'run()V' : function() {
+        console.log('Thread started');
+    }
+});
 
-    var vm = require('./node-java').createVm();
-    var Runnable = vm.implement(['java/lang/Runnable'], {
-        'run()V' : function() {
-            console.log('Thread started');
-        }
-    });
-
-    var thread = vm.findClass('java/lang/Thread').newInstance('Ljava/lang/Runnable;', Runnable.newInstance());
-    thread.invoke('start()V');
+var thread = vm.findClass('java/lang/Thread').newInstance('Ljava/lang/Runnable;', Runnable.newInstance());
+thread.invoke('start()V');
+```
 
   1. Note that, the implemented method calls made from inside or outside the Node.JS's main message loop is quite different.
 If a method call is made inside the main loop, we can execute javascript codes immediately. However, if a method is called
@@ -125,58 +155,69 @@ constructor.
 ## class JavaClass
  
 ### newInstance
-
-    function newInstance(optional string argSignatures, mixed ...args)
+```js
+function newInstance(optional string argSignatures, mixed ...args)
+```
 
   - Returns: a instance of class `JavaObject`
 
 ### invoke
-
-    function invoke(string signature, mixed ...args)
+```js
+function invoke(string signature, mixed ...args)
+```
 
 ### invokeAsync
-
-    function invokeAsync(string signature, mixed ...args)
+```js
+function invokeAsync(string signature, mixed ...args)
+```js
 
   - Returns: a promise
 
 ### get
-
-    function get(string name, string type)
+```js
+function get(string name, string type)
+```
 
 ### set
-
-    function set(string name, string type, mixed value)
+```js
+function set(string name, string type, mixed value)
+```
 
 ## class JavaObject
 
 ### getClass
-
-    function getClass()
+```js
+function getClass()
+```
 
   - Returns: a instance of class `JavaClass`
 
 ### invoke
-
+```js
     function invoke(string signature, mixed ...args)
+```
 
 ### invokeAsync
-
+```js
     function invokeAsync(string signature, mixed ...args)
+```
 
   - Returns: a promise
 
 ### get
-
+```js
     function get(string name, string type)
+```
 
 ### set
-
+```js
     function set(string name, string type, mixed value)
+```
 
 ### asClass
-
+```js
     function asClass()
+```
 
   - Returns: a instance of class `JavaClass`
  
@@ -204,5 +245,4 @@ See [JNI API Reference](http://docs.oracle.com/javase/8/docs/technotes/guides/jn
 
   - array support
     - create primitive/object arrays
-    - access primitive/object arrays
-  - port to windows/osx
+  - port to windows
