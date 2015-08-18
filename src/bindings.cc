@@ -1,5 +1,6 @@
+#ifndef _WIN32
 #include <dlfcn.h>
-
+#endif
 #include "java.h"
 #include "async.h"
 #include "java_native.h"
@@ -9,21 +10,23 @@ namespace java {
 
 
     namespace vm {
+#ifndef _WIN32
+		// link(path, verbose)
+		NAN_METHOD(link) {
+			Isolate *isolate = Isolate::GetCurrent();
+			HandleScope handle_scope(isolate);
 
-        // link(path, verbose)
-        NAN_METHOD(link) {
-            Isolate *isolate = Isolate::GetCurrent();
-            HandleScope handle_scope(isolate);
+			void *handle = dlopen(*String::Utf8Value(info[0]), RTLD_LAZY | RTLD_GLOBAL);
+			if (!handle) {
+				return Nan::ThrowError(dlerror());
+			}
 
-            void *handle = dlopen(*String::Utf8Value(info[0]), RTLD_LAZY | RTLD_GLOBAL);
-            if (!handle) {
-                return Nan::ThrowError(dlerror());
-            }
+			verbose = info[1]->BooleanValue();
+			native::init();
 
-            verbose = info[1]->BooleanValue();
-            native::init();
+		}
+#endif
 
-        }
 
         NAN_METHOD(createVm) { // int argc, char*
             Isolate *isolate = Isolate::GetCurrent();
@@ -599,7 +602,36 @@ namespace java {
 
 //                fprintf(stderr, "native %d: %s return %c\n", i, *Signature, retType);
 
-                JNINativeMethod callHelper = {(char *) ("_$CALLJS"), *Signature, native::callbacks[(int) retType]};
+				JNINativeMethod callHelper;
+				callHelper.name = (char *)("_$CALLJS");
+				callHelper.signature = *Signature;
+				switch (retType) {
+				case 'V':
+					callHelper.fnPtr = (void*)native::voidCallback;
+					break;
+				case 'Z':
+				case 'B':
+				case 'S':
+				case 'C':
+				case 'I':
+					callHelper.fnPtr = (void*)native::intCallback;
+					break;
+				case 'F':
+					callHelper.fnPtr = (void*)native::floatCallback;
+					break;
+				case 'D':
+					callHelper.fnPtr = (void*)native::doubleCallback;
+					break;
+				case 'J':
+					callHelper.fnPtr = (void*)native::longCallback;
+					break;
+				case 'L':
+				case '[':
+					callHelper.fnPtr = (void*)native::objectCallback;
+					break;
+
+				}
+				// fprintf(stderr, "%s %s returns %c\n", callHelper.name, callHelper.signature, retType);
                 jint err = env->RegisterNatives(cls, &callHelper, 1);
                 CHECK_ERRNO(err, "RegisterNatives failed");
             }

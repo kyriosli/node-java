@@ -28,6 +28,16 @@
             "<!(/usr/libexec/java_home)/include",
             "<!(/usr/libexec/java_home)/include/darwin"
           ]
+        }],
+        ["OS==\"win\"",
+        {
+          "include_dirs": [
+            "<!(echo %JAVA_HOME%)/include",
+            "<!(echo %JAVA_HOME%)/include/win32"
+          ],
+		  "libraries": [
+			"<!(echo %JAVA_HOME%)/lib/jvm.lib",
+		  ]
         }]
       ]
     }

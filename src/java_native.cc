@@ -7,10 +7,46 @@
 using namespace v8;
 
 static void async_call(uv_async_t * handle);
+static void callV8(JNIEnv * env, va_list & vl, jvalue * ret);
 
 namespace java {
     namespace native {
-        void *callbacks[92];
+
+		
+#define call(env)   va_list vl;\
+    va_start(vl, env);\
+    jvalue ret;\
+    callV8(env, vl, &ret)
+
+		JNIEXPORT void JNICALL voidCallback(JNIEnv *env, ...) {
+			call(env);
+		}
+
+		JNIEXPORT jint JNICALL intCallback(JNIEnv *env, ...) {
+			call(env);
+			return ret.i;
+		}
+
+		JNIEXPORT jfloat JNICALL floatCallback(JNIEnv *env, ...) {
+			call(env);
+			return ret.f;
+		}
+
+		JNIEXPORT jdouble JNICALL doubleCallback(JNIEnv *env, ...) {
+			call(env);
+			return ret.d;
+		}
+
+		JNIEXPORT jlong JNICALL longCallback(JNIEnv *env, ...) {
+			call(env);
+			return ret.j;
+		}
+
+		JNIEXPORT jobject JNICALL objectCallback(JNIEnv *env, ...) {
+			call(env);
+			return ret.l;
+		}
+#undef	call
 
         void execute(JNIEnv *env, Isolate *isolate, va_list &vl, jvalue *ret) {
             HandleScope handle_scope(isolate);
@@ -24,22 +60,21 @@ namespace java {
 
             args[1] = String::Concat(cast(env, isolate, methodName), cast(env, isolate, methodSig));
             // methodName_sig
-
-
+			
             const jchar *sig = env->GetStringChars(methodSig, NULL);
             const jchar *ptr = sig + 1;
             int argc = 2;
-
+			
             for (; ;) {
                 char type = *ptr++;
                 if (type == ')') break;
-//                    fprintf(stderr, "argument type %c\n", type);
+                // fprintf(stderr, "argument type %c\n", type);
                 // skip to next argument
 
                 Local <Value> &result = args[argc++];
                 if (type == '[') {
                     while (*ptr++ == '[');
-                    type = *ptr++;
+                    type = *ptr;
                     if (type == 'L') {
                         while (*ptr++ != ';');
                     }
@@ -59,6 +94,7 @@ namespace java {
                         while (*ptr++ != ';');
                     }
                 }
+				fprintf(stderr, "type %c\n", type);
 
                 jobject ptr;
                 switch (type) {
@@ -182,48 +218,4 @@ static void callV8(JNIEnv * env, va_list & vl, jvalue * ret) {
         java::native::async_call_t(env, vl, ret);
     }
     va_end(vl);
-}
-
-#define call(env)   va_list vl;\
-    va_start(vl, env);\
-    jvalue ret;\
-    callV8(env, vl, &ret);
-
-static void voidCallback(JNIEnv *env, ...) {
-    call(env);
-}
-
-static jint intCallback(JNIEnv *env, ...) {
-    call(env);
-    return ret.i;
-}
-
-static jfloat floatCallback(JNIEnv *env, ...) {
-    call(env);
-    return ret.f;
-}
-
-static jdouble doubleCallback(JNIEnv *env, ...) {
-    call(env);
-    return ret.d;
-}
-
-static jlong longCallback(JNIEnv *env, ...) {
-    call(env);
-    return ret.j;
-}
-
-static jobject objectCallback(JNIEnv *env, ...) {
-    call(env);
-    return ret.l;
-}
-
-void java::native::init() {
-    callbacks['V'] = (void *) voidCallback;
-    callbacks['I'] = callbacks['Z'] = callbacks['B'] = callbacks['S'] = callbacks['C'] = (void *) intCallback;
-    callbacks['F'] = (void *) floatCallback;
-    callbacks['D'] = (void *) doubleCallback;
-    callbacks['J'] = (void *) longCallback;
-
-    callbacks['L'] = callbacks['['] = (void *) objectCallback;
 }

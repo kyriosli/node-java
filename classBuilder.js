@@ -174,7 +174,7 @@ Builder.prototype = {
             view = new DataView(buffer),
             idx;
         view.setUint32(0, 0xcafebabe);
-        view.setUint32(4, 0x00000034);
+        view.setUint32(4, 0x00000030);
         view.setUint16(8, this.constants.length + 1);
 
         idx = 10;

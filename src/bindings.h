@@ -43,10 +43,10 @@ namespace java {
         NAN_METHOD(invoke);
 
         NAN_METHOD(dispose);
-
+#ifndef _WIN32
         // link(path, verbose)
         NAN_METHOD(link);
-
+#endif
         // defineClass(vm, name, buffer, natives)
         NAN_METHOD(defineClass);
 

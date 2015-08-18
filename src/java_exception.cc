@@ -7,6 +7,10 @@ namespace java {
         jthrowable e = env->ExceptionOccurred();
         env->ExceptionClear();
 
+		jmethodID printStackTrace = env->GetMethodID(env->FindClass("java/lang/Throwable"), "printStackTrace", "()V");
+
+		env->CallObjectMethod(e, printStackTrace);
+
         static jmethodID toString = env->GetMethodID(env->FindClass("java/lang/Throwable"), "toString", "()Ljava/lang/String;");
         jstring message = (jstring) env->CallObjectMethod(e, toString);
 

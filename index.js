@@ -66,7 +66,7 @@ JavaVM.prototype = {
         var name = 'kyrios/Impl' + (nextImplId++).toString(36),
             impl = require('./implement').build(name, parentName, interfaces, Object.keys(methods));
 
-        // require('fs').writeFileSync(name + '.class', new Buffer(new Uint8Array(impl.buffer)));
+        require('fs').writeFileSync(name + '.class', new Buffer(new Uint8Array(impl.buffer)));
 
         var handle = bindings.defineClass(this.vm, name, impl.buffer, impl.natives),
             ret = instance.classCache[name] = new JavaClass(name, handle);
@@ -262,6 +262,11 @@ function initBinding(resolve, reject) {
     var platform = process.platform, arch = process.arch;
     var java_home = process.env.JAVA_HOME,
         jre_home = process.env.JRE_HOME;
+
+    if(platform === 'win32') {
+    	verbose && console.log('win32 does not need to load bindings dynamically');
+    	return;
+    }
 
     var fs = require('fs');
 

@@ -68,8 +68,8 @@ exports.build = function (name, superName, interfaces, methods) {
         var code = buildInstructions(nameIdx, methodNameIdx, methodTypeIdx, argTypes, retType, castRet, callerIdx, isCtor);
         builder.defineMethod('_$CALLJS', callType, helperFlags);
 
-        //console.log(signatureIdx, callType, Array.prototype.slice.call(code));
-        //console.log('defineMethod[' + signature + '] maxStack=' + maxStack, isCtor);
+        // console.log(methodName, methodTypes, code);
+        console.log('defineMethod[' + signature + '] maxStack=' + maxStack, isCtor);
         builder.defineMethod(methodName, methodTypes, constants.ACC_PUBLIC, [builder.createCode(maxStack, maxStack - 2, code)]);
     }
 

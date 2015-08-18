@@ -19,7 +19,9 @@ namespace java {
         javaObjectWrap.Reset(tmpl);
 		// NanAssignPersistent(bindings, exports);
 #define REGISTER(name)    Nan::SetMethod(exports, #name, vm::name);
+#ifndef _WIN32
         REGISTER(link);
+#endif
         REGISTER(createVm);
         REGISTER(dispose);
         REGISTER(runMain);
