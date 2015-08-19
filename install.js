@@ -1,5 +1,5 @@
 var pkg = require('./package.json');
-var host = pkg.author + '.github.io';
+var host = pkg.author.name + '.github.io';
 var options = {
     method: 'GET',
     host: host,

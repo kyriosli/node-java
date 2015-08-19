@@ -17,7 +17,9 @@
   "keywords": [
     "Java"
   ],
-  "author": "kyriosli",
+  "author": {
+    "name": "kyriosli"
+  },
   "license": "ISC",
   "gypfile": true,
   "bugs": {
