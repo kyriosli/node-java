@@ -170,7 +170,7 @@ namespace java {
                     val.l = arg->IsNull() ? NULL : arg->IsObject() ? unwrap(arg) : cast(env, arg);
                     break;
                 case 'L':
-                    val.l = arg->IsNull() ? NULL : unwrap(arg);
+                    val.l = arg->IsObject() ? unwrap(arg) : arg->IsString() ? cast(env, arg) : NULL;
                     break;
                 case 'Z':
                     val.z = arg->BooleanValue();
