@@ -86,9 +86,9 @@ var myWriter = vm.findClass('java/io/PrintStream').newInstance('Ljava/io/OutputS
     }
 }).newInstance());
 
-myWriter.invoke('println(Ljava/lang/String;)V', 'Hello world!');
+myWriter.invoke('print(Ljava/lang/String;)V', 'Hello world!');
 
-assert.strictEqual(new Buffer(written).toString(), 'Hello world!\n');
+assert.strictEqual(new Buffer(written).toString(), 'Hello world!');
 
 var threadStarted = false;
 

@@ -94,8 +94,7 @@ namespace java {
                         while (*ptr++ != ';');
                     }
                 }
-				fprintf(stderr, "type %c\n", type);
-
+				
                 jobject ptr;
                 switch (type) {
                     case 'Z':

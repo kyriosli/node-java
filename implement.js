@@ -69,7 +69,7 @@ exports.build = function (name, superName, interfaces, methods) {
         builder.defineMethod('_$CALLJS', callType, helperFlags);
 
         // console.log(methodName, methodTypes, code);
-        console.log('defineMethod[' + signature + '] maxStack=' + maxStack, isCtor);
+        // console.log('defineMethod[' + signature + '] maxStack=' + maxStack, isCtor);
         builder.defineMethod(methodName, methodTypes, constants.ACC_PUBLIC, [builder.createCode(maxStack, maxStack - 2, code)]);
     }
 
