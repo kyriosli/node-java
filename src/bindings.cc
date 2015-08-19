@@ -22,8 +22,6 @@ namespace java {
 			}
 
 			verbose = info[1]->BooleanValue();
-			native::init();
-
 		}
 #endif
 
