@@ -171,7 +171,7 @@ function invoke(string signature, mixed ...args)
 ### invokeAsync
 ```js
 function invokeAsync(string signature, mixed ...args)
-```js
+```
 
   - Returns: a promise
 
