@@ -196,29 +196,29 @@ function getClass()
 
 ### invoke
 ```js
-    function invoke(string signature, mixed ...args)
+function invoke(string signature, mixed ...args)
 ```
 
 ### invokeAsync
 ```js
-    function invokeAsync(string signature, mixed ...args)
+function invokeAsync(string signature, mixed ...args)
 ```
 
   - Returns: a promise
 
 ### get
 ```js
-    function get(string name, string type)
+function get(string name, string type)
 ```
 
 ### set
 ```js
-    function set(string name, string type, mixed value)
+function set(string name, string type, mixed value)
 ```
 
 ### asClass
 ```js
-    function asClass()
+function asClass()
 ```
 
   - Returns: a instance of class `JavaClass`
